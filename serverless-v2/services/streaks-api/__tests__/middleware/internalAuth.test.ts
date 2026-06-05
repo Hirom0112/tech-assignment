@@ -1,20 +1,10 @@
 import type { Request, Response, NextFunction } from 'express';
 import { internalAuthMiddleware } from '../../src/middleware/internalAuth';
+import { ForbiddenError } from '../../src/middleware/error';
 
-function mockRes(): Response & { statusCode: number; body: unknown } {
-  const res = {
-    statusCode: 0,
-    body: undefined as unknown,
-    status(code: number) {
-      this.statusCode = code;
-      return this;
-    },
-    json(payload: unknown) {
-      this.body = payload;
-      return this;
-    },
-  };
-  return res as unknown as Response & { statusCode: number; body: unknown };
+/** A bare `res` stub — the middleware never touches it (it throws on failure). */
+function mockRes(): Response {
+  return {} as Response;
 }
 
 describe('middleware/internalAuth (Inv 10)', () => {
@@ -28,37 +18,28 @@ describe('middleware/internalAuth (Inv 10)', () => {
     process.env.INTERNAL_API_SECRET = ORIGINAL;
   });
 
-  it('returns 403 Forbidden when the secret is missing', () => {
+  it('throws ForbiddenError when the secret is missing (→ error mw maps to 403)', () => {
     const req = { headers: {} } as Request;
-    const res = mockRes();
     const next = jest.fn() as unknown as NextFunction;
 
-    internalAuthMiddleware(req, res, next);
-
-    expect(res.statusCode).toBe(403);
-    expect(res.body).toEqual({ error: 'Forbidden', message: expect.any(String) });
+    expect(() => internalAuthMiddleware(req, mockRes(), next)).toThrow(ForbiddenError);
     expect(next).not.toHaveBeenCalled();
   });
 
-  it('returns 403 Forbidden when the secret is wrong', () => {
+  it('throws ForbiddenError when the secret is wrong', () => {
     const req = { headers: { 'x-internal-secret': 'nope' } } as unknown as Request;
-    const res = mockRes();
     const next = jest.fn() as unknown as NextFunction;
 
-    internalAuthMiddleware(req, res, next);
-
-    expect(res.statusCode).toBe(403);
+    expect(() => internalAuthMiddleware(req, mockRes(), next)).toThrow(ForbiddenError);
     expect(next).not.toHaveBeenCalled();
   });
 
   it('calls next() when the secret matches', () => {
     const req = { headers: { 'x-internal-secret': 'dev-internal-secret' } } as unknown as Request;
-    const res = mockRes();
     const next = jest.fn() as unknown as NextFunction;
 
-    internalAuthMiddleware(req, res, next);
+    internalAuthMiddleware(req, mockRes(), next);
 
     expect(next).toHaveBeenCalledTimes(1);
-    expect(res.statusCode).toBe(0);
   });
 });

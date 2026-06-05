@@ -21,7 +21,7 @@ import {
   type CalendarDay,
 } from '../services/calendar.service';
 import { utcDay, nowIso } from '../lib/utc';
-import { logger } from '../../shared/config/logger';
+import { BadRequestError, UnauthorizedError } from '../middleware/error';
 
 /** The §4.3 calendar response body. */
 interface CalendarResponse {
@@ -32,8 +32,7 @@ interface CalendarResponse {
 export async function getCalendarHandler(req: Request, res: Response): Promise<void> {
   const playerId = req.playerId;
   if (playerId === undefined) {
-    res.status(401).json({ error: 'Unauthorized', message: 'X-Player-Id header is required' });
-    return;
+    throw new UnauthorizedError();
   }
 
   // Day-math computed once at the edge (Inv 1): today's UTC day drives the
@@ -49,19 +48,15 @@ export async function getCalendarHandler(req: Request, res: Response): Promise<v
   try {
     month = resolveMonth(monthParam, today);
   } catch (err) {
+    // A malformed month → 400 BadRequest (preserve the service's message).
     if (err instanceof InvalidMonthError) {
-      res.status(400).json({ error: 'BadRequest', message: err.message });
-      return;
+      throw new BadRequestError(err.message);
     }
     throw err;
   }
 
-  try {
-    const rows = await queryMonth(playerId, month);
-    const body: CalendarResponse = { month, days: buildMonthDays(month, rows, today) };
-    res.status(200).json(body);
-  } catch (err) {
-    logger.error('getCalendar failed', { playerId, month, err });
-    res.status(500).json({ error: 'InternalError', message: 'Failed to load calendar' });
-  }
+  // A DynamoDB failure rejects here → asyncHandler → 500 InternalError (A-3).
+  const rows = await queryMonth(playerId, month);
+  const body: CalendarResponse = { month, days: buildMonthDays(month, rows, today) };
+  res.status(200).json(body);
 }

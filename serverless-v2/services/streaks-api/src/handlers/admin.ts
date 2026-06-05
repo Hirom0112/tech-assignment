@@ -20,6 +20,7 @@ import type { Request, Response } from 'express';
 import { getPlayer, grantFreezeAdmin } from '../repositories/dynamo.repository';
 import { nowIso } from '../lib/utc';
 import { logger } from '../../shared/config/logger';
+import { BadRequestError, ConflictError, NotFoundError } from '../middleware/error';
 import type { AdminGrantResponse } from '../domain/types';
 
 /** The validated admin-grant body. */
@@ -31,27 +32,28 @@ interface GrantBody {
 export async function grantFreezesHandler(req: Request, res: Response): Promise<void> {
   const body = validateBody(req.body);
   if (body === null) {
-    res.status(400).json({
-      error: 'BadRequest',
-      message: 'playerId is required and count must be an integer >= 1',
-    });
-    return;
+    throw new BadRequestError('playerId is required and count must be an integer >= 1');
   }
 
   const { playerId, count } = body;
+  const correlationId = req.correlationId;
+
+  // Unknown player → 404 (never grant to a typo'd id, §4.7 errors). A raw
+  // DynamoDB failure on getPlayer rejects → asyncHandler → 500 (A-3).
+  const existing = await getPlayer(playerId);
+  if (existing === null) {
+    logger.warn('admin grant rejected: unknown playerId', { playerId, correlationId });
+    throw new NotFoundError('Unknown playerId');
+  }
 
   try {
-    // Unknown player → 404 (never grant to a typo'd id, §4.7 errors).
-    const existing = await getPlayer(playerId);
-    if (existing === null) {
-      res.status(404).json({ error: 'NotFound', message: 'Unknown playerId' });
-      return;
-    }
-
     const result = await grantFreezeAdmin({ playerId, count, now: nowIso() });
 
+    // Write-path log (NFR-6, S7-2). Metric hook (ARCHITECTURE §8):
+    // `streaks.freeze.granted` (count=`count`) attaches here.
     logger.info('admin granted freezes', {
       playerId,
+      correlationId,
       granted: count,
       freezesAvailable: result.freezesAvailable,
     });
@@ -68,14 +70,12 @@ export async function grantFreezesHandler(req: Request, res: Response): Promise<
     // The repository's cap ConditionExpression failing means the grant would
     // exceed the 99 soft cap → 409 Conflict (the only documented 409, §4.7).
     if (isConditionalCheckFailed(err)) {
-      res.status(409).json({
-        error: 'Conflict',
-        message: 'Freeze grant exceeds the maximum balance of 99',
-      });
-      return;
+      logger.warn('admin grant rejected: over cap', { playerId, correlationId, count });
+      throw new ConflictError('Freeze grant exceeds the maximum balance of 99');
     }
-    logger.error('admin grantFreezes failed', { playerId, err });
-    res.status(500).json({ error: 'InternalError', message: 'Failed to grant freezes' });
+    // Anything else (incl. raw DynamoDB failures) propagates → 500 (A-3); the
+    // error middleware logs the real error without leaking it on the wire.
+    throw err;
   }
 }
 

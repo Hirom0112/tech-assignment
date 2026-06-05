@@ -30,14 +30,15 @@ import { detectMilestone } from '../services/reward.service';
 import { toStreaksResponse, zeroStreaksResponse } from './presenter';
 import { nowIso, utcDay, yearMonth, yesterday as priorDay } from '../lib/utc';
 import { logger } from '../../shared/config/logger';
+import { UnauthorizedError } from '../middleware/error';
 import type { CheckInResponse, PlayerStreak, RewardRecord } from '../domain/types';
 
 export async function checkInHandler(req: Request, res: Response): Promise<void> {
   const playerId = req.playerId;
   if (playerId === undefined) {
-    res.status(401).json({ error: 'Unauthorized', message: 'X-Player-Id header is required' });
-    return;
+    throw new UnauthorizedError();
   }
+  const correlationId = req.correlationId;
 
   // Day-math computed once at the edge (Inv 1).
   const now = nowIso();
@@ -68,6 +69,13 @@ export async function checkInHandler(req: Request, res: Response): Promise<void>
           yearMonth: yearMonth(today),
           now,
         });
+        // Write-path log (NFR-6). Metric hook (ARCHITECTURE §8):
+        // `streaks.freeze.granted` (source=free_monthly) attaches here.
+        logger.info('check-in granted monthly freeze', {
+          playerId,
+          correlationId,
+          yearMonth: yearMonth(today),
+        });
       }
       // (2) Consume one freeze to protect the single missed day. The transaction
       // covers BOTH axes (it only touches the shared freeze balance + the missed
@@ -81,6 +89,16 @@ export async function checkInHandler(req: Request, res: Response): Promise<void>
           newFreezesUsedThisMonth: freeze.newFreezesUsedThisMonth,
           now,
         });
+        if (protectedByFreeze) {
+          // Write-path log (NFR-6). Metric hook (ARCHITECTURE §8):
+          // `streaks.freeze.consumed` attaches here.
+          logger.info('check-in consumed freeze', {
+            playerId,
+            correlationId,
+            missedDate: freeze.missedDate,
+            source: freeze.freezeSource,
+          });
+        }
       }
     }
 
@@ -132,8 +150,13 @@ export async function checkInHandler(req: Request, res: Response): Promise<void>
         res.status(200).json(noOpResponse(playerId, current));
         return;
       }
+      // Write-path log (NFR-6, S7-2). Metric hooks (ARCHITECTURE §8):
+      // `streaks.checkin.count` + `streaks.reward.awarded` (login) attach here.
       logger.info('check-in awarded login milestone', {
         playerId,
+        correlationId,
+        loginStreak: result.player.loginStreak,
+        freezeConsumed: protectedByFreeze,
         milestone: reward.milestone,
         points: reward.points,
         rewardId: reward.rewardId,
@@ -155,10 +178,22 @@ export async function checkInHandler(req: Request, res: Response): Promise<void>
 
     await persistPlayer(existing, result.player, today, yesterday, now, expectedLastLoginDate);
 
+    // Write-path log (NFR-6, S7-2). Metric hooks (ARCHITECTURE §8):
+    // `streaks.checkin.count`, plus `streaks.freeze.consumed` when protected.
+    logger.info('check-in advanced login streak', {
+      playerId,
+      correlationId,
+      loginStreak: result.player.loginStreak,
+      freezeConsumed: protectedByFreeze,
+    });
+
     res.status(200).json(advancedResponse(playerId, result.player, null, protectedByFreeze));
   } catch (err) {
-    logger.error('check-in failed', { playerId, err });
-    res.status(500).json({ error: 'InternalError', message: 'Check-in failed' });
+    // Unexpected failure (incl. raw DynamoDB) → propagate to the error
+    // middleware → 500 InternalError with a generic message (A-3); the real
+    // error is logged there with correlationId, never leaked on the wire.
+    logger.error('check-in failed', { playerId, correlationId, err });
+    throw err;
   }
 }
 

@@ -12,31 +12,26 @@
 import type { Request, Response } from 'express';
 
 import { getPlayer, queryFreezeHistory } from '../repositories/dynamo.repository';
-import { logger } from '../../shared/config/logger';
+import { UnauthorizedError } from '../middleware/error';
 import type { FreezesResponse } from '../domain/types';
 
 export async function getFreezesHandler(req: Request, res: Response): Promise<void> {
   const playerId = req.playerId;
   if (playerId === undefined) {
-    res.status(401).json({ error: 'Unauthorized', message: 'X-Player-Id header is required' });
-    return;
+    throw new UnauthorizedError();
   }
-  try {
-    const [player, history] = await Promise.all([
-      getPlayer(playerId),
-      queryFreezeHistory(playerId),
-    ]);
-    const body: FreezesResponse = {
-      freezesAvailable: player?.freezesAvailable ?? 0,
-      freezesUsedThisMonth: player?.freezesUsedThisMonth ?? 0,
-      lastFreezeGrantDate: player?.lastFreezeGrantDate ?? null,
-      // `queryFreezeHistory` already returns newest-first by the `date` SK; the
-      // wire surfaces only `{date, source}` (drops the internal `createdAt`/PK).
-      history: history.map((row) => ({ date: row.date, source: row.source })),
-    };
-    res.status(200).json(body);
-  } catch (err) {
-    logger.error('getFreezes failed', { playerId, err });
-    res.status(500).json({ error: 'InternalError', message: 'Failed to load freezes' });
-  }
+  // A DynamoDB failure rejects here → asyncHandler → 500 InternalError (A-3).
+  const [player, history] = await Promise.all([
+    getPlayer(playerId),
+    queryFreezeHistory(playerId),
+  ]);
+  const body: FreezesResponse = {
+    freezesAvailable: player?.freezesAvailable ?? 0,
+    freezesUsedThisMonth: player?.freezesUsedThisMonth ?? 0,
+    lastFreezeGrantDate: player?.lastFreezeGrantDate ?? null,
+    // `queryFreezeHistory` already returns newest-first by the `date` SK; the
+    // wire surfaces only `{date, source}` (drops the internal `createdAt`/PK).
+    history: history.map((row) => ({ date: row.date, source: row.source })),
+  };
+  res.status(200).json(body);
 }

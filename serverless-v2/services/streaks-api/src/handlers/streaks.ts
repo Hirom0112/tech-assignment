@@ -10,20 +10,16 @@ import type { Request, Response } from 'express';
 
 import { getPlayer } from '../repositories/dynamo.repository';
 import { toStreaksResponse, zeroStreaksResponse } from './presenter';
-import { logger } from '../../shared/config/logger';
+import { UnauthorizedError } from '../middleware/error';
 
 export async function getStreaksHandler(req: Request, res: Response): Promise<void> {
   const playerId = req.playerId;
   if (playerId === undefined) {
-    res.status(401).json({ error: 'Unauthorized', message: 'X-Player-Id header is required' });
-    return;
+    throw new UnauthorizedError();
   }
-  try {
-    const player = await getPlayer(playerId);
-    const body = player === null ? zeroStreaksResponse() : toStreaksResponse(player);
-    res.status(200).json(body);
-  } catch (err) {
-    logger.error('getStreaks failed', { playerId, err });
-    res.status(500).json({ error: 'InternalError', message: 'Failed to load streaks' });
-  }
+  // A repository / DynamoDB failure rejects this promise; the asyncHandler
+  // wrapper forwards it to the error middleware → 500 InternalError (A-3).
+  const player = await getPlayer(playerId);
+  const body = player === null ? zeroStreaksResponse() : toStreaksResponse(player);
+  res.status(200).json(body);
 }

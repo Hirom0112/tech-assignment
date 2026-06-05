@@ -1,5 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 
+import { ForbiddenError } from './error';
+
 /**
  * Internal/admin auth middleware (Inv 10).
  *
@@ -8,18 +10,15 @@ import type { Request, Response, NextFunction } from 'express';
  * supplied via the `X-Internal-Secret` header. This is NOT player auth —
  * it must never sit on the player-auth surface.
  *
- * Missing or mismatched secret → 403 Forbidden with the canonical error shape.
+ * Missing or mismatched secret → throws `ForbiddenError`, which the error
+ * middleware (S7-1) projects to the canonical 403 `{error,message}` shape.
  */
-export function internalAuthMiddleware(req: Request, res: Response, next: NextFunction): void {
+export function internalAuthMiddleware(req: Request, _res: Response, next: NextFunction): void {
   const provided = req.headers['x-internal-secret'];
   const expected = process.env.INTERNAL_API_SECRET;
 
   if (!expected || provided !== expected) {
-    res.status(403).json({
-      error: 'Forbidden',
-      message: 'Valid X-Internal-Secret header is required',
-    });
-    return;
+    throw new ForbiddenError('Valid X-Internal-Secret header is required');
   }
 
   next();

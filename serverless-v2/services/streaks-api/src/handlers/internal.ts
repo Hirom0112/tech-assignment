@@ -35,6 +35,7 @@ import { evaluateFreeze } from '../services/freeze.service';
 import { detectMilestone } from '../services/reward.service';
 import { isIsoInstant, nowIso, utcDay, yearMonth, yesterday as priorDay } from '../lib/utc';
 import { logger } from '../../shared/config/logger';
+import { BadRequestError } from '../middleware/error';
 import type { HandCompletedResponse, PlayerStreak, RewardRecord } from '../domain/types';
 
 /** The validated hand-completed request body. */
@@ -48,14 +49,13 @@ interface HandCompletedBody {
 export async function handCompletedHandler(req: Request, res: Response): Promise<void> {
   const body = validateBody(req.body);
   if (body === null) {
-    res.status(400).json({
-      error: 'BadRequest',
-      message: 'playerId, tableId, handId and ISO-8601 completedAt are all required',
-    });
-    return;
+    throw new BadRequestError(
+      'playerId, tableId, handId and ISO-8601 completedAt are all required',
+    );
   }
 
   const { playerId, completedAt } = body;
+  const correlationId = req.correlationId;
 
   // Day-math computed once at the edge from the HAND's completedAt (Inv 1) —
   // NOT now. The UTC day of completedAt is the day credited (spec §Edge 1).
@@ -142,8 +142,11 @@ export async function handCompletedHandler(req: Request, res: Response): Promise
         res.status(200).json(noOpResponse(playerId, day, current));
         return;
       }
+      // Write-path log (NFR-6, S7-2). Metric hook (ARCHITECTURE §8):
+      // `streaks.reward.awarded` (play) attaches here.
       logger.info('hand-completed awarded play milestone', {
         playerId,
+        correlationId,
         tableId: body.tableId,
         handId: body.handId,
         date: day,
@@ -177,8 +180,11 @@ export async function handCompletedHandler(req: Request, res: Response): Promise
 
     await persistPlayer(existing, result.player, day, yesterday, now, expectedLastPlayDate);
 
+    // Write-path log (NFR-6, S7-2). Metric hook (ARCHITECTURE §8):
+    // `streaks.checkin.count` (play axis) attaches here.
     logger.info('hand-completed advanced play streak', {
       playerId,
+      correlationId,
       tableId: body.tableId,
       handId: body.handId,
       date: day,
@@ -187,8 +193,10 @@ export async function handCompletedHandler(req: Request, res: Response): Promise
 
     res.status(200).json(advancedResponse(playerId, day, result.player.playStreak, null));
   } catch (err) {
-    logger.error('hand-completed failed', { playerId, err });
-    res.status(500).json({ error: 'InternalError', message: 'Hand-completed failed' });
+    // Unexpected failure (incl. raw DynamoDB) → propagate to the error
+    // middleware → 500 InternalError with a generic message (A-3).
+    logger.error('hand-completed failed', { playerId, correlationId, err });
+    throw err;
   }
 }
 

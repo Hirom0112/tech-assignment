@@ -8,6 +8,8 @@ declare global {
   namespace Express {
     interface Request {
       playerId?: string;
+      /** Per-request trace id set by `correlationMiddleware` (S7-2, NFR-6). */
+      correlationId?: string;
     }
   }
 }

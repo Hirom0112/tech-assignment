@@ -16,19 +16,14 @@ import type { Request, Response } from 'express';
 
 import { queryRewards } from '../repositories/dynamo.repository';
 import { toRewardWire } from './presenter';
-import { logger } from '../../shared/config/logger';
+import { UnauthorizedError } from '../middleware/error';
 
 export async function getRewardsHandler(req: Request, res: Response): Promise<void> {
   const playerId = req.playerId;
   if (playerId === undefined) {
-    res.status(401).json({ error: 'Unauthorized', message: 'X-Player-Id header is required' });
-    return;
+    throw new UnauthorizedError();
   }
-  try {
-    const rewards = await queryRewards(playerId);
-    res.status(200).json(rewards.map(toRewardWire));
-  } catch (err) {
-    logger.error('getRewards failed', { playerId, err });
-    res.status(500).json({ error: 'InternalError', message: 'Failed to load rewards' });
-  }
+  // A DynamoDB failure rejects here → asyncHandler → 500 InternalError (A-3).
+  const rewards = await queryRewards(playerId);
+  res.status(200).json(rewards.map(toRewardWire));
 }
