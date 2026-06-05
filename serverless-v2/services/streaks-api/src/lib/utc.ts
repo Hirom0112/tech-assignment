@@ -51,6 +51,50 @@ export function nowIso(): string {
 }
 
 /**
+ * True iff `value` is a syntactically AND calendar-valid UTC `YYYY-MM`
+ * (`^\d{4}-\d{2}$`, month 01–12). The single source for calendar-month
+ * validation so the handler never hand-rolls a regex (Inv 1).
+ * @example isValidYearMonth('2026-02') => true
+ * @example isValidYearMonth('2026-13') => false
+ * @example isValidYearMonth('2026-2')  => false
+ */
+export function isValidYearMonth(value: string): boolean {
+  if (!/^\d{4}-\d{2}$/.test(value)) {
+    return false;
+  }
+  return DateTime.fromFormat(value, 'yyyy-MM', { zone: 'utc' }).isValid;
+}
+
+/**
+ * The ascending list of every UTC `YYYY-MM-DD` calendar day in `yearMonth`
+ * (`YYYY-MM`). The single source of "how many days in this month" so the dense
+ * calendar array isn't hand-rolled (Inv 1, NFR-1). Throws on a malformed month.
+ * @example monthDays('2026-02') => ['2026-02-01', …, '2026-02-28'] (28 entries)
+ */
+export function monthDays(yearMonth: string): string[] {
+  const start = DateTime.fromFormat(yearMonth, 'yyyy-MM', { zone: 'utc' });
+  if (!start.isValid) {
+    throw new Error(`Invalid year-month: ${yearMonth}`);
+  }
+  const count = start.daysInMonth ?? 0;
+  const days: string[] = [];
+  for (let day = 0; day < count; day++) {
+    days.push(toIsoDate(start.plus({ days: day })));
+  }
+  return days;
+}
+
+/**
+ * The `YYYY-MM` of the given ISO date — distinct from `yearMonth(isoDate)` only
+ * in intent (resolving the current month for the calendar default). Reuses the
+ * same single-source month formatter.
+ * @example monthOf('2026-06-05') => '2026-06'
+ */
+export function monthOf(isoDate: string): string {
+  return yearMonth(isoDate);
+}
+
+/**
  * Epoch milliseconds for an ISO instant — the single place day/time math turns
  * an instant into a sortable integer (Inv 1). Used to build the time-ordered,
  * zero-padded `rewardId` prefix so a reward `Query` with `ScanIndexForward=false`
