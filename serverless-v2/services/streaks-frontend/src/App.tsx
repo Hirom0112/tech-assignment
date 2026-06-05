@@ -19,12 +19,14 @@ const OpenSequence = lazy(() => import('./components/intro/OpenSequence'));
  * - Unauthenticated visitors are sent to /intro (cinematic) → /login.
  * - Authenticated visitors land on the dashboard `/`.
  *
- * If the cinematic was already played this session (`introSeen`), /intro
- * short-circuits to /login so we don't replay the 3-beat open every visit.
+ * If the cinematic was already played this session (`introSeen`), the *auto*
+ * redirect skips it (returning users land on /login). A direct or refreshed
+ * visit to /intro ALWAYS replays — so reloading the tab restarts the open.
  */
 function RequireAuth({ children }: { children: ReactElement }) {
   const isAuthenticated = useSelector((s: RootState) => s.auth.isAuthenticated);
-  return isAuthenticated ? children : <Navigate to="/intro" replace />;
+  if (isAuthenticated) return children;
+  return <Navigate to={introAlreadySeen() ? '/login' : '/intro'} replace />;
 }
 
 /** Black hold while the intro chunk loads (no flash before the cinematic). */
@@ -39,13 +41,10 @@ function App() {
         <Route
           path="/intro"
           element={
-            introAlreadySeen() ? (
-              <Navigate to="/login" replace />
-            ) : (
-              <Suspense fallback={<IntroFallback />}>
-                <OpenSequence />
-              </Suspense>
-            )
+            // A direct/refreshed /intro always plays — refresh = restart.
+            <Suspense fallback={<IntroFallback />}>
+              <OpenSequence />
+            </Suspense>
           }
         />
         <Route path="/login" element={<LoginScreen />} />
