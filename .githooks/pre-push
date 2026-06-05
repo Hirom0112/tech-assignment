@@ -8,19 +8,37 @@
 #
 # Wire it once per clone:  git config core.hooksPath .githooks
 #
-# Scope for S0: serverless-v2/services/streaks-api. Extend the PACKAGES list
-# as later slices add packages (e.g. streaks-frontend).
+# Scope: serverless-v2/services/streaks-api (S0) and
+# serverless-v2/services/streaks-frontend (joined S6, guarded S10).
+#
+# Each package runs the SAME commands its CI job runs (CLAUDE.md §4 parity —
+# red CI == red push):
+#   streaks-api      → npm run typecheck (tsc --noEmit) + npm test (jest)
+#   streaks-frontend → npm run build (tsc && vite build, the TS check) + npm test (vitest)
+# The frontend has no `typecheck` script, so its TS check is `npm run build`.
 set -euo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 
-# Packages guarded by this hook (path relative to repo root).
-PACKAGES=("serverless-v2/services/streaks-api")
+# Packages guarded by this hook (path relative to repo root). The matching
+# entry in TS_CHECK is the package's TypeScript-check script (`tsc --noEmit`
+# for the api, `build` = `tsc && vite build` for the frontend).
+PACKAGES=(
+  "serverless-v2/services/streaks-api"
+  "serverless-v2/services/streaks-frontend"
+)
+TS_CHECK=(
+  "typecheck"
+  "build"
+)
 
 # Files staged/committed for this push, relative to repo root.
 CHANGED="$(git diff --name-only HEAD @{push} 2>/dev/null || git diff --name-only HEAD)"
 
-for pkg in "${PACKAGES[@]}"; do
+for i in "${!PACKAGES[@]}"; do
+  pkg="${PACKAGES[$i]}"
+  ts_script="${TS_CHECK[$i]}"
+
   # Only run the suite if this push touches the package.
   if ! printf '%s\n' "$CHANGED" | grep -q "^$pkg/"; then
     echo "pre-push: no changes in $pkg — skipping its checks."
@@ -30,8 +48,8 @@ for pkg in "${PACKAGES[@]}"; do
   echo "pre-push: checking $pkg ..."
   (
     cd "$REPO_ROOT/$pkg"
-    echo "  -> npm run typecheck"
-    npm run typecheck
+    echo "  -> npm run $ts_script"
+    npm run "$ts_script"
     echo "  -> npm test"
     npm test
   )
