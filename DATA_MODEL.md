@@ -20,7 +20,7 @@ Daily Streaks uses **four separate DynamoDB tables**, not a single-table design:
 |---|---|---|---|
 | `streaks-players` | `playerId` (S) | — | One aggregate record per player (the two streak counters, bests, freeze balance, last-activity dates). |
 | `streaks-activity` | `playerId` (S) | `date` (S, `YYYY-MM-DD`) | One row per player per UTC day; the heat-map source + per-day idempotency key. |
-| `streaks-rewards` | `playerId` (S) | `rewardId` (S, ULID) | One row per milestone reward earned (also carries the `streak_bonus` txn + notification payload — see §4, §5). |
+| `streaks-rewards` | `playerId` (S) | `rewardId` (S, sortable time-ordered — §4) | One row per milestone reward earned (also carries the `streak_bonus` txn + notification payload — see §4, §5). |
 | `streaks-freeze-history` | `playerId` (S) | `date` (S, `YYYY-MM-DD`) | One row per freeze consumed (the day it protected). |
 
 **Why multi-table (ADR-1).** These four entity types are **never co-retrieved heterogeneously** — every read targets exactly one entity type by `playerId` (and a date/id range). Single-table design's marquee payoff is fetching mixed item types in one Query (RESEARCH.md Q4, citing DeBrie); we never do that, so it buys us nothing and costs junior readability. AWS explicitly sanctions skipping single-table "if multi-table design is easier for you to reason about" (RESEARCH.md Q4). Write atomicity across tables is preserved with `TransactWriteCommand`. This is the *defensible, documented* choice, recorded as **ADR-1** in ARCHITECTURE.md.
@@ -122,12 +122,12 @@ Daily Streaks uses **four separate DynamoDB tables**, not a single-table design:
 ## 4. Table: `streaks-rewards`
 
 - **PK:** `playerId` (String). **SK:** `rewardId` (String).
-- **`rewardId` = ULID** (recommended over UUIDv4). ULIDs are **lexicographically sortable by creation time**, so a `Query` on PK returns rewards in chronological order for free (newest-first with `ScanIndexForward=false`) — no `createdAt`-sort post-processing, consistent with the ISO-time-series ordering principle in RESEARCH.md Q4. UUIDv4 is an acceptable fallback but loses the free ordering.
+- **`rewardId` = sortable time-ordered id (ULID **or** the zero-dep epoch-millis-prefix scheme shipped here).** As shipped (**reconciled per ASSUMPTIONS A-7**), `rewardId` is a zero-dependency, lexicographically-sortable string built by `makeRewardId`: a 15-digit zero-padded epoch-millis prefix + a short base-36 suffix, e.g. `001779912380053-vcppvl4y`. Like a ULID's time component it is **lexicographically sortable by creation time**, so a `Query` on PK returns rewards in chronological order for free (newest-first with `ScanIndexForward=false`) — no `createdAt`-sort post-processing, consistent with the ISO-time-series ordering principle in RESEARCH.md Q4. ULID is the recommended alternative; the zero-dep scheme was chosen to keep the dep budget intact (STND-5) while preserving the same ordering property. UUIDv4 would be an acceptable fallback but loses the free ordering.
 
 | Attribute | Type | Description |
 |---|---|---|
 | `playerId` | S | **PK.** |
-| `rewardId` | S | **SK.** ULID (sortable). |
+| `rewardId` | S | **SK.** Sortable time-ordered id — zero-dep epoch-millis prefix as shipped (A-7), or ULID. |
 | `type` | S | `login_milestone` \| `play_milestone` (FR-2). |
 | `milestone` | N | Days threshold crossed: one of 3, 7, 14, 30, 60, 90 (FR-2.1). |
 | `points` | N | Bonus points awarded (the `loginReward`/`playReward` from §9). |
@@ -208,10 +208,10 @@ Every app operation maps to exactly one (or one transactional set of) DynamoDB o
 | B | Create player (first check-in) | FR-1 (new player) | `PutCommand` | `streaks-players`, `ConditionExpression: attribute_not_exists(playerId)` — only creates if absent. |
 | C | Advance login streak (idempotent single increment) | FR-1.1, NFR-2 | `UpdateCommand` | `streaks-players`, see ConditionExpression below. |
 | D | Write daily activity (once-per-day) | FR-1, FR-6.2, NFR-2 | `PutCommand` | `streaks-activity`, `ConditionExpression: attribute_not_exists(#date)` (`#date` aliases reserved word `date`). |
-| E | Merge `played` into today's row | FR-6.1/6.2 | `UpdateCommand` | `streaks-activity` `Key:{playerId,date}`, `SET played = :true` (no condition needed — idempotent flip). |
+| E | Merge `played` into today's row | FR-6.1/6.2 | `UpdateCommand` | `streaks-activity` `Key:{playerId,date}`, conditional create-or-merge: `SET #played = :true` (+ `if_not_exists(...)` preserving login fields) guarded by `ConditionExpression: attribute_not_exists(#date) OR #played <> :true` (**reconciled per ASSUMPTIONS A-6** — the merge is conditional, not an unconditional `SET`; this is what makes `playStreakUpdated` correctly report first-of-day, the once-per-UTC-day idempotency source of truth, consistent with §8). |
 | F | Calendar by month (heat map) | FR-5.3, NFR-8 | `QueryCommand` | `streaks-activity`, `playerId = :p AND begins_with(#date, :ym)`, `:ym = "2026-06"`. **One Query.** |
 | G | Last-30-days window | FR-4.3 | `QueryCommand` | `streaks-activity`, `playerId = :p AND #date BETWEEN :start AND :end`. **One Query.** |
-| H | List rewards history | FR-5.4 | `QueryCommand` | `streaks-rewards`, `playerId = :p`, `ScanIndexForward=false` (newest ULID first). |
+| H | List rewards history | FR-5.4 | `QueryCommand` | `streaks-rewards`, `playerId = :p`, `ScanIndexForward=false` (newest first — the time-ordered `rewardId` SK sorts by creation time, §4). |
 | I | List freeze history | FR-5.5 | `QueryCommand` | `streaks-freeze-history`, `playerId = :p`, `ScanIndexForward=false`. |
 | J | Admin grant freeze | FR-3.3 | `UpdateCommand` | `streaks-players`, `ADD freezesAvailable :n` (atomic add is fine here — admin grant is not retry-sensitive per calendar day). |
 | K | Check-in crossing a milestone | FR-2.3, §8 | `TransactWriteCommand` | player Update + activity Put + reward Put together — see §8. |
@@ -298,7 +298,7 @@ The current seed produces the **legacy single-streak shape** (§2). It must be *
 - For multi-day gaps (or single gaps with no freeze), mark the **break day** `streakBroken=true` and reset the running counters to 0 (FR-3 edge case: a freeze covers only one missed day).
 
 **Reward rows when milestones are crossed:**
-- While walking days, whenever `loginStreakAtDay` or `playStreakAtDay` **equals** a milestone (3/7/14/30/60/90, §9), write a `streaks-rewards` row: `{ playerId, rewardId: <ULID>, type: "login_milestone"|"play_milestone", milestone, points: <from §9>, streakCount: <count>, createdAt: <that day's iso>, pointTxnType: "streak_bonus", notification: { title, body, deepLink, milestone, type, points, createdAt } }`.
+- While walking days, whenever `loginStreakAtDay` or `playStreakAtDay` **equals** a milestone (3/7/14/30/60/90, §9), write a `streaks-rewards` row: `{ playerId, rewardId: <sortable time-ordered id, §4>, type: "login_milestone"|"play_milestone", milestone, points: <from §9>, streakCount: <count>, createdAt: <that day's iso>, pointTxnType: "streak_bonus", notification: { title, body, deepLink, milestone, type, points, createdAt } }`.
 - Re-award after a reset reaches the same milestone again (FR-2.2).
 
 **Player aggregate fields (write last, derived from the walk):**

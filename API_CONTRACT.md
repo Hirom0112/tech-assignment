@@ -5,7 +5,13 @@
 **Audience:** the Unity mobile client (primary), the React dashboard (secondary), and the game/hand processor (internal).
 **Precedence:** constrained by `PROJECT.md`; constrains the backend route handlers and the shared TypeScript contract types.
 
-> Every example in this document is copy-pasteable. Player IDs use the seed convention `p1-uuid-0001` (see `docs/local-development.md`). All JSON bodies are real, not placeholders.
+> Every shape in this document is canonical, but the **player-id values in the examples
+> are illustrative** (`p1-uuid-0001`, etc.). The stub accepts **any** non-empty
+> `X-Player-Id` (§2.1); it does not validate the id against a fixed list. The **shipped
+> seed** uses the convention **`streak-001`…`streak-010`** (`scripts/seed-streaks.js`,
+> DATA_MODEL.md §11), and the live demo/dev player is **`streak-001`** — substitute it
+> wherever an example shows `p1-uuid-0001`. (Reconciled per ASSUMPTIONS **A-2**.) All
+> JSON bodies are real, not placeholders.
 
 ---
 
@@ -109,7 +115,9 @@ Quick map (full reference in §8):
 
 > **Content-Type note.** Every endpoint returns `application/json` **except 4.9 `share-card`**, which returns `image/svg+xml` by default (and optionally `image/png` via `?format=png` — ASSUMPTION, see §4.9). All error responses are `application/json` on every endpoint (§1, §3).
 
-> **Canonical vs alias paths.** The canonical Unity contract path is `/api/v1/player/streaks…`. The skeleton stub mounts `/api/v1/streaks…`; that prefix is kept as a **backward-compatible alias** that maps to the same handlers (see §7). New clients SHOULD use `/api/v1/player/streaks…`.
+> **Canonical vs alias paths.** The canonical Unity contract path is `/api/v1/player/streaks…`. The skeleton stub mounts `/api/v1/streaks…`; that prefix is kept as a **backward-compatible alias** that maps to the same handlers (see §7). New clients SHOULD use `/api/v1/player/streaks…`. Both the canonical and alias paths are mounted live (verified at `:5001`); the alias covers `GET /api/v1/streaks` and `POST /api/v1/streaks/check-in`.
+
+> **Shipped vs deferred (build status).** §4.1–§4.7 and `/api/v1/health` are **mounted and live** (curl-verified at `:5001`). **§4.8 admin view-history (FR-8)** and **§4.9 share-card (FR-9)** are **specified here but not yet mounted** — they belong to the bonus phase (S8/S9, PROJECT.md §10). Until then, requesting those paths returns `404 NotFound` (the canonical error shape), consistent with their deferred status. Their contracts are locked so the bonus slices implement them without re-spec.
 
 ---
 
@@ -397,7 +405,7 @@ A check-in after a single missed day where a freeze was auto-consumed to protect
 | `notification.milestone` | integer | The milestone day length (mirrors the reward's `milestone`): 3/7/14/30/60/90. |
 | `notification.type` | enum | `login_milestone` \| `play_milestone` (mirrors the reward's `type`). |
 
-> **Notification field name & shape.** The wrapping field is `notification` to match the `notification` Map stored on the reward item in `streaks-rewards` (DATA_MODEL.md §4–5, appendix). The Unity-facing payload carries `{ title, body, deepLink, milestone, type }` (FR-7.1). **ASSUMPTION:** DATA_MODEL.md's stored Map also persists `points` + `createdAt` (already present on the parent reward object); those are storage conveniences and are **not** re-surfaced inside `notification` on the wire to avoid duplicating the reward's own `points`/`createdAt`. `deepLink` (FR-7.1) is the one wire field not in the DATA_MODEL.md §4 example Map — reconcile by adding `deepLink` to the stored Map.
+> **Notification field name & shape.** The wrapping field is `notification` to match the `notification` Map stored on the reward item in `streaks-rewards` (DATA_MODEL.md §4–5, appendix). The Unity-facing payload carries `{ title, body, deepLink, milestone, type }` (FR-7.1). **ASSUMPTION:** DATA_MODEL.md's stored Map also persists `points` + `createdAt` (already present on the parent reward object); those are storage conveniences and are **not** re-surfaced inside `notification` on the wire to avoid duplicating the reward's own `points`/`createdAt`. `deepLink` (FR-7.1) **is present in the stored Map** (DATA_MODEL.md §4 example + §5) and on the wire — `hijackpoker://streaks` is confirmed live in the seeded rewards.
 
 > A `streak_bonus` point-transaction record is written alongside each reward (FR-2.5) but is **not** part of this response — it is an internal ledger record, not a Unity-facing resource.
 
