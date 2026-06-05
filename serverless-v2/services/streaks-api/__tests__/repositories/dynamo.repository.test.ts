@@ -20,8 +20,10 @@ import {
   mergePlayed,
   advancePlayStreak,
   resetPlayStreak,
+  awardMilestone,
+  queryRewards,
 } from '../../src/repositories/dynamo.repository';
-import type { ActivityDay, PlayerStreak } from '../../src/domain/types';
+import type { ActivityDay, PlayerStreak, RewardRecord } from '../../src/domain/types';
 
 function samplePlayer(): PlayerStreak {
   return {
@@ -201,5 +203,154 @@ describe('dynamo.repository — play writes (pattern E + conditional advance)', 
     expect(input.UpdateExpression).toContain('playStreak = :n');
     expect(input.UpdateExpression).not.toMatch(/\bADD\b/);
     expect(input.ExpressionAttributeValues).toMatchObject({ ':n': 1, ':day': '2026-02-20' });
+  });
+});
+
+function sampleReward(): RewardRecord {
+  return {
+    rewardId: '001771575302000-abc12345',
+    type: 'login_milestone',
+    milestone: 7,
+    points: 150,
+    streakCount: 7,
+    createdAt: '2026-02-13T08:03:55.000Z',
+    notification: {
+      title: '7-day login streak!',
+      body: 'You earned 150 bonus points for a 7-day login streak. 14 days unlocks 400!',
+      deepLink: 'hijackpoker://streaks',
+      milestone: 7,
+      type: 'login_milestone',
+    },
+  };
+}
+
+describe('dynamo.repository — awardMilestone transaction (Inv 4)', () => {
+  it('bundles exactly 3 writes into ONE TransactWriteCommand: player Update + activity Put + reward Put', async () => {
+    send.mockResolvedValueOnce({});
+    const ok = await awardMilestone({
+      player: {
+        playerId: 'p1',
+        loginStreak: 7,
+        bestLoginStreak: 7,
+        date: '2026-02-13',
+        yesterday: '2026-02-12',
+        axis: 'login',
+        isNewPlayer: false,
+      },
+      activity: sampleActivity(),
+      reward: sampleReward(),
+      now: '2026-02-13T08:03:55.000Z',
+    });
+
+    const input = lastInput() as { TransactItems: Array<Record<string, Record<string, unknown>>> };
+    // ONE TransactWriteCommand with exactly three items.
+    expect(Array.isArray(input.TransactItems)).toBe(true);
+    expect(input.TransactItems).toHaveLength(3);
+
+    const update = input.TransactItems.find((i) => i.Update)?.Update;
+    const puts = input.TransactItems.filter((i) => i.Put).map((i) => i.Put);
+    expect(update).toBeDefined();
+    expect(puts).toHaveLength(2);
+
+    // (1) player Update — conditional advance (SET, condition on yesterday; no bare ADD).
+    expect(update?.TableName).toBe('streaks-players');
+    expect(update?.Key).toMatchObject({ playerId: 'p1' });
+    expect(update?.UpdateExpression).toContain('loginStreak = :n');
+    expect(update?.UpdateExpression).not.toMatch(/\bADD\b/);
+    expect(update?.ConditionExpression).toContain('lastLoginDate = :yesterday');
+    expect(update?.ExpressionAttributeValues).toMatchObject({ ':n': 7, ':yesterday': '2026-02-12' });
+
+    // (2) activity Put — the once-per-day idempotency row.
+    const activityPut = puts.find((p) => p?.TableName === 'streaks-activity');
+    expect(activityPut).toBeDefined();
+    expect(activityPut?.ConditionExpression).toContain('attribute_not_exists(#date)');
+    expect(activityPut?.Item).toMatchObject({ playerId: 'p1', date: '2026-06-05' });
+
+    // (3) reward Put — §4.4 fields + pointTxnType:'streak_bonus' + notification Map,
+    //     guarded by attribute_not_exists(rewardId) (Inv 4 dup-write guard).
+    const rewardPut = puts.find((p) => p?.TableName === 'streaks-rewards');
+    expect(rewardPut).toBeDefined();
+    expect(rewardPut?.ConditionExpression).toContain('attribute_not_exists(rewardId)');
+    expect(rewardPut?.Item).toMatchObject({
+      playerId: 'p1',
+      rewardId: '001771575302000-abc12345',
+      type: 'login_milestone',
+      milestone: 7,
+      points: 150,
+      streakCount: 7,
+      createdAt: '2026-02-13T08:03:55.000Z',
+      pointTxnType: 'streak_bonus',
+    });
+    expect((rewardPut?.Item as { notification: unknown }).notification).toMatchObject({
+      title: '7-day login streak!',
+      deepLink: 'hijackpoker://streaks',
+      milestone: 7,
+      type: 'login_milestone',
+    });
+    expect(ok).toBe(true);
+  });
+
+  it('new-player milestone Update uses attribute_not_exists(playerId), not the yesterday condition', async () => {
+    send.mockResolvedValueOnce({});
+    await awardMilestone({
+      player: {
+        playerId: 'p2',
+        loginStreak: 3,
+        bestLoginStreak: 3,
+        date: '2026-02-13',
+        yesterday: '2026-02-12',
+        axis: 'login',
+        isNewPlayer: true,
+      },
+      activity: { ...sampleActivity(), playerId: 'p2' },
+      reward: { ...sampleReward(), milestone: 3, points: 50, streakCount: 3 },
+      now: '2026-02-13T08:03:55.000Z',
+    });
+    const input = lastInput() as { TransactItems: Array<Record<string, Record<string, unknown>>> };
+    const update = input.TransactItems.find((i) => i.Update)?.Update;
+    expect(update?.ConditionExpression).toContain('attribute_not_exists(playerId)');
+    expect(update?.UpdateExpression).not.toMatch(/\bADD\b/);
+  });
+
+  it('play-axis milestone Update touches only playStreak with lastPlayDate condition', async () => {
+    send.mockResolvedValueOnce({});
+    await awardMilestone({
+      player: {
+        playerId: 'p3',
+        playStreak: 7,
+        bestPlayStreak: 7,
+        date: '2026-02-13',
+        yesterday: '2026-02-12',
+        axis: 'play',
+        isNewPlayer: false,
+      },
+      activity: { ...sampleActivity(), playerId: 'p3', played: true },
+      reward: { ...sampleReward(), type: 'play_milestone', points: 300 },
+      now: '2026-02-13T08:03:55.000Z',
+    });
+    const input = lastInput() as { TransactItems: Array<Record<string, Record<string, unknown>>> };
+    const update = input.TransactItems.find((i) => i.Update)?.Update;
+    expect(update?.UpdateExpression).toContain('playStreak = :n');
+    expect(update?.UpdateExpression).not.toContain('loginStreak');
+    expect(update?.ConditionExpression).toContain('lastPlayDate = :yesterday');
+  });
+});
+
+describe('dynamo.repository — queryRewards (pattern H, NFR-8 no Scan)', () => {
+  it('issues a Query (not a Scan) keyed on playerId with ScanIndexForward=false', async () => {
+    send.mockResolvedValueOnce({ Items: [sampleReward()] });
+    const rewards = await queryRewards('p1');
+    const input = lastInput();
+    expect(input.TableName).toBe('streaks-rewards');
+    expect(input.KeyConditionExpression).toContain('playerId = :p');
+    expect(input.ScanIndexForward).toBe(false);
+    expect(input.ExpressionAttributeValues).toMatchObject({ ':p': 'p1' });
+    expect(rewards).toHaveLength(1);
+    expect(rewards[0]).toMatchObject({ rewardId: '001771575302000-abc12345', points: 150 });
+  });
+
+  it('returns [] when the player has no rewards', async () => {
+    send.mockResolvedValueOnce({ Items: undefined });
+    expect(await queryRewards('nobody')).toEqual([]);
   });
 });

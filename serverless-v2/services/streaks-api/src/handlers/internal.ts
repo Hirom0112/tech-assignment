@@ -22,15 +22,17 @@ import type { Request, Response } from 'express';
 
 import {
   advancePlayStreak,
+  awardMilestone,
   createPlayer,
   getPlayer,
   mergePlayed,
   resetPlayStreak,
 } from '../repositories/dynamo.repository';
 import { applyHandCompleted } from '../services/play.service';
+import { detectMilestone } from '../services/reward.service';
 import { isIsoInstant, nowIso, utcDay, yesterday as priorDay } from '../lib/utc';
 import { logger } from '../../shared/config/logger';
-import type { HandCompletedResponse, PlayerStreak } from '../domain/types';
+import type { HandCompletedResponse, PlayerStreak, RewardRecord } from '../domain/types';
 
 /** The validated hand-completed request body. */
 interface HandCompletedBody {
@@ -73,6 +75,49 @@ export async function handCompletedHandler(req: Request, res: Response): Promise
       return;
     }
 
+    // Did this advance land exactly on a play milestone? (Reset → 1 and a new
+    // player's first → 1 are never rungs, so this is null on those paths.)
+    const reward = detectMilestone('play_milestone', result.player.playStreak, now);
+
+    if (reward !== null) {
+      // Milestone crossing → ONE atomic TransactWriteCommand (Inv 4): player
+      // Update + activity create-or-merge + reward Put. The activity leg's
+      // create-or-merge condition is the per-day idempotency gate; a racing
+      // duplicate cancels the whole transaction → no-op.
+      const committed = await awardMilestone({
+        player: {
+          playerId,
+          axis: 'play',
+          isNewPlayer: existing === null,
+          date: day,
+          yesterday,
+          playStreak: result.player.playStreak,
+          bestPlayStreak: result.player.bestPlayStreak,
+        },
+        activity: result.activity,
+        reward,
+        now,
+      });
+      if (!committed) {
+        const current = (await getPlayer(playerId)) ?? result.player;
+        res.status(200).json(noOpResponse(playerId, day, current));
+        return;
+      }
+      logger.info('hand-completed awarded play milestone', {
+        playerId,
+        tableId: body.tableId,
+        handId: body.handId,
+        date: day,
+        playStreak: result.player.playStreak,
+        milestone: reward.milestone,
+        points: reward.points,
+        rewardId: reward.rewardId,
+      });
+      res.status(200).json(advancedResponse(playerId, day, result.player.playStreak, reward));
+      return;
+    }
+
+    // Non-milestone advance (the common case) → cheap plain writes.
     // The activity merge is the idempotency gate (Inv 2, pattern E). If the day
     // already has `played=true` (a racing duplicate beat us), treat as a
     // same-day no-op and return the current state rather than double-advancing.
@@ -101,14 +146,7 @@ export async function handCompletedHandler(req: Request, res: Response): Promise
       playStreak: result.player.playStreak,
     });
 
-    const response: HandCompletedResponse = {
-      playerId,
-      date: day,
-      playStreakUpdated: true,
-      playStreak: result.player.playStreak,
-      milestoneEarned: null,
-    };
-    res.status(200).json(response);
+    res.status(200).json(advancedResponse(playerId, day, result.player.playStreak, null));
   } catch (err) {
     logger.error('hand-completed failed', { playerId, err });
     res.status(500).json({ error: 'InternalError', message: 'Hand-completed failed' });
@@ -139,6 +177,26 @@ async function persistPlayer(
   } else {
     await resetPlayStreak(common);
   }
+}
+
+/**
+ * Build the advancing 200 response. `milestoneEarned` carries the play-milestone
+ * reward ONLY on the call that earned it (API_CONTRACT.md §4.6); a non-milestone
+ * advance passes `null`.
+ */
+function advancedResponse(
+  playerId: string,
+  day: string,
+  playStreak: number,
+  reward: RewardRecord | null,
+): HandCompletedResponse {
+  return {
+    playerId,
+    date: day,
+    playStreakUpdated: true,
+    playStreak,
+    milestoneEarned: reward,
+  };
 }
 
 /** Build a same-day no-op response from the current player state. */

@@ -16,16 +16,18 @@ import type { Request, Response } from 'express';
 
 import {
   advanceLoginStreak,
+  awardMilestone,
   createPlayer,
   getPlayer,
   putActivity,
   resetLoginStreak,
 } from '../repositories/dynamo.repository';
 import { applyLoginCheckIn } from '../services/streak.service';
+import { detectMilestone } from '../services/reward.service';
 import { toStreaksResponse, zeroStreaksResponse } from './presenter';
 import { nowIso, utcDay, yesterday as priorDay } from '../lib/utc';
 import { logger } from '../../shared/config/logger';
-import type { CheckInResponse, PlayerStreak } from '../domain/types';
+import type { CheckInResponse, PlayerStreak, RewardRecord } from '../domain/types';
 
 export async function checkInHandler(req: Request, res: Response): Promise<void> {
   const playerId = req.playerId;
@@ -56,6 +58,45 @@ export async function checkInHandler(req: Request, res: Response): Promise<void>
       return;
     }
 
+    // Did this advance land exactly on a milestone rung? (Reset → 1 and a new
+    // player's first → 1 are never rungs, so this is null on those paths.)
+    const reward = detectMilestone('login_milestone', result.player.loginStreak, now);
+
+    if (reward !== null) {
+      // Milestone crossing → ONE atomic TransactWriteCommand (Inv 4): player
+      // Update + activity Put + reward Put. The activity Put's
+      // attribute_not_exists(#date) inside the transaction is the idempotency
+      // gate; a racing duplicate cancels the whole transaction → no-op.
+      const committed = await awardMilestone({
+        player: {
+          playerId,
+          axis: 'login',
+          isNewPlayer: existing === null,
+          date: today,
+          yesterday,
+          loginStreak: result.player.loginStreak,
+          bestLoginStreak: result.player.bestLoginStreak,
+        },
+        activity: result.activity,
+        reward,
+        now,
+      });
+      if (!committed) {
+        const current = (await getPlayer(playerId)) ?? result.player;
+        res.status(200).json(noOpResponse(playerId, current));
+        return;
+      }
+      logger.info('check-in awarded login milestone', {
+        playerId,
+        milestone: reward.milestone,
+        points: reward.points,
+        rewardId: reward.rewardId,
+      });
+      res.status(200).json(advancedResponse(playerId, result.player, reward));
+      return;
+    }
+
+    // Non-milestone advance (the common case) → cheap plain conditional writes.
     // Activity write is the idempotency gate (Inv 2). If the row already exists
     // (a racing duplicate beat us), treat as a same-day no-op and return the
     // current state rather than double-advancing.
@@ -68,14 +109,7 @@ export async function checkInHandler(req: Request, res: Response): Promise<void>
 
     await persistPlayer(existing, result.player, today, yesterday, now);
 
-    res.status(200).json({
-      playerId,
-      checkedInToday: true,
-      streakAdvanced: true,
-      freezeConsumed: false,
-      streaks: toStreaksResponse(result.player),
-      milestoneEarned: null,
-    });
+    res.status(200).json(advancedResponse(playerId, result.player, null));
   } catch (err) {
     logger.error('check-in failed', { playerId, err });
     res.status(500).json({ error: 'InternalError', message: 'Check-in failed' });
@@ -106,6 +140,26 @@ async function persistPlayer(
   } else {
     await resetLoginStreak(common);
   }
+}
+
+/**
+ * Build the advancing 200 response. `milestoneEarned` carries the reward ONLY
+ * on the call that earned it (API_CONTRACT.md §4.2); a non-milestone advance
+ * passes `null`.
+ */
+function advancedResponse(
+  playerId: string,
+  player: PlayerStreak,
+  reward: RewardRecord | null,
+): CheckInResponse {
+  return {
+    playerId,
+    checkedInToday: true,
+    streakAdvanced: true,
+    freezeConsumed: false,
+    streaks: toStreaksResponse(player),
+    milestoneEarned: reward,
+  };
 }
 
 /** Build a same-day no-op response from the current player state. */
