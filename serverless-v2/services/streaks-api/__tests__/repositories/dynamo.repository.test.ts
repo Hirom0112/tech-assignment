@@ -17,6 +17,9 @@ import {
   createPlayer,
   putActivity,
   advanceLoginStreak,
+  mergePlayed,
+  advancePlayStreak,
+  resetPlayStreak,
 } from '../../src/repositories/dynamo.repository';
 import type { ActivityDay, PlayerStreak } from '../../src/domain/types';
 
@@ -119,5 +122,84 @@ describe('dynamo.repository', () => {
       ':yesterday': '2026-06-04',
       ':today': '2026-06-05',
     });
+  });
+});
+
+describe('dynamo.repository — play writes (pattern E + conditional advance)', () => {
+  it('mergePlayed UpdateCommand sets played=true + playStreakAtDay with create-or-merge condition + aliases', async () => {
+    send.mockResolvedValueOnce({});
+    const ok = await mergePlayed({
+      playerId: 'p1',
+      date: '2026-02-20',
+      playStreakAtDay: 3,
+      loginStreakAtDay: 0,
+      loggedIn: false,
+      streakBroken: false,
+      now: '2026-02-20T14:30:00.000Z',
+    });
+    const input = lastInput();
+    expect(input.Key).toMatchObject({ playerId: 'p1', date: '2026-02-20' });
+    // pattern E: create-or-merge — only the first hand of the day passes.
+    expect(input.ConditionExpression).toContain('attribute_not_exists(#date)');
+    expect(input.ConditionExpression).toContain('#played <> :true');
+    expect(input.ExpressionAttributeNames).toMatchObject({ '#date': 'date', '#played': 'played' });
+    expect(input.UpdateExpression).toContain('#played = :true');
+    expect(input.UpdateExpression).toContain('playStreakAtDay = :psad');
+    expect(input.UpdateExpression).not.toMatch(/\bADD\b/);
+    expect(input.ExpressionAttributeValues).toMatchObject({ ':true': true, ':psad': 3 });
+    expect(ok).toBe(true);
+  });
+
+  it('mergePlayed returns false on ConditionalCheckFailedException (same-day repeat hand)', async () => {
+    send.mockRejectedValueOnce(
+      Object.assign(new Error('exists'), { name: 'ConditionalCheckFailedException' }),
+    );
+    const ok = await mergePlayed({
+      playerId: 'p1',
+      date: '2026-02-20',
+      playStreakAtDay: 3,
+      loginStreakAtDay: 0,
+      loggedIn: false,
+      streakBroken: false,
+      now: '2026-02-20T14:30:00.000Z',
+    });
+    expect(ok).toBe(false);
+  });
+
+  it('advancePlayStreak conditions on lastPlayDate = :yesterday and SETs playStreak = :n (no ADD)', async () => {
+    send.mockResolvedValueOnce({});
+    await advancePlayStreak({
+      playerId: 'p1',
+      playStreak: 3,
+      bestPlayStreak: 3,
+      day: '2026-02-20',
+      yesterday: '2026-02-19',
+      now: '2026-02-20T14:30:00.000Z',
+    });
+    const input = lastInput();
+    expect(input.ConditionExpression).toContain('lastPlayDate = :yesterday');
+    expect(input.UpdateExpression).toContain('playStreak = :n');
+    expect(input.UpdateExpression).not.toMatch(/\bADD\b/);
+    expect(input.ExpressionAttributeValues).toMatchObject({
+      ':n': 3,
+      ':yesterday': '2026-02-19',
+      ':day': '2026-02-20',
+    });
+  });
+
+  it('resetPlayStreak SETs playStreak = :n guarded by lastPlayDate <> :day (no ADD)', async () => {
+    send.mockResolvedValueOnce({});
+    await resetPlayStreak({
+      playerId: 'p1',
+      playStreak: 1,
+      bestPlayStreak: 5,
+      day: '2026-02-20',
+      now: '2026-02-20T14:30:00.000Z',
+    });
+    const input = lastInput();
+    expect(input.ConditionExpression).toContain('lastPlayDate <> :day');
+    expect(input.UpdateExpression).toContain('playStreak = :n');
+    expect(input.UpdateExpression).not.toMatch(/\bADD\b/);
+    expect(input.ExpressionAttributeValues).toMatchObject({ ':n': 1, ':day': '2026-02-20' });
   });
 });

@@ -152,6 +152,157 @@ export async function resetLoginStreak(input: ResetLoginInput): Promise<boolean>
   }
 }
 
+/** Inputs to the play-activity merge (pattern E, DATA_MODEL.md §7). */
+export interface MergePlayedInput {
+  playerId: string;
+  date: string;
+  playStreakAtDay: number;
+  loginStreakAtDay: number;
+  loggedIn: boolean;
+  streakBroken: boolean;
+  now: string;
+}
+
+/**
+ * Merge `played` into the day's activity row (DATA_MODEL.md §7 pattern E —
+ * "create-once, narrowly-updatable"). The SAME day's row may already exist from
+ * a login check-in; this `UpdateCommand` flips `played=true` and stamps
+ * `playStreakAtDay` without re-creating it.
+ *
+ * The create-or-merge condition `attribute_not_exists(#date) OR #played <> :true`
+ * is the idempotency gate for `hand-completed` (Inv 2): it passes on the FIRST
+ * hand of the UTC day (row absent, or present from login with `played=false`)
+ * and FAILS on every later hand (`played` already true) → returns `false`. On a
+ * create it also seeds the row's other booleans so a play-without-login day is
+ * a complete row. Counters are written with `SET` — never a bare `ADD` (Inv 3).
+ *
+ * Returns `true` if this call was the first-of-day merge, `false` on a repeat.
+ */
+export async function mergePlayed(input: MergePlayedInput): Promise<boolean> {
+  try {
+    await docClient.send(
+      new UpdateCommand({
+        TableName: ACTIVITY_TABLE,
+        Key: { playerId: input.playerId, date: input.date },
+        UpdateExpression:
+          'SET #played = :true, playStreakAtDay = :psad, ' +
+          'loggedIn = if_not_exists(loggedIn, :loggedIn), ' +
+          'freezeUsed = if_not_exists(freezeUsed, :false), ' +
+          'streakBroken = if_not_exists(streakBroken, :broken), ' +
+          'loginStreakAtDay = if_not_exists(loginStreakAtDay, :lsad), ' +
+          '#timestamp = if_not_exists(#timestamp, :now)',
+        ConditionExpression: 'attribute_not_exists(#date) OR #played <> :true',
+        ExpressionAttributeNames: {
+          '#date': 'date',
+          '#played': 'played',
+          '#timestamp': 'timestamp',
+        },
+        ExpressionAttributeValues: {
+          ':true': true,
+          ':false': false,
+          ':psad': input.playStreakAtDay,
+          ':loggedIn': input.loggedIn,
+          ':broken': input.streakBroken,
+          ':lsad': input.loginStreakAtDay,
+          ':now': input.now,
+        },
+      }),
+    );
+    return true;
+  } catch (err) {
+    if (isConditionalCheckFailed(err)) {
+      return false;
+    }
+    throw err;
+  }
+}
+
+/** Inputs to the conditional play-streak advance. */
+export interface AdvancePlayInput {
+  playerId: string;
+  playStreak: number;
+  bestPlayStreak: number;
+  day: string;
+  yesterday: string;
+  now: string;
+}
+
+/**
+ * Advance the play streak by a single conditional UpdateItem, mirroring
+ * `advanceLoginStreak` on the PLAY axis (FR-1.3 independence — touches only
+ * playStreak/bestPlayStreak/lastPlayDate). The condition
+ * `lastPlayDate = :yesterday` guarantees the streak advances exactly once even
+ * under retry (Inv 3). The counter is `SET playStreak = :n` — NEVER a bare
+ * `ADD`. Returns `false` if the condition failed (already advanced).
+ */
+export async function advancePlayStreak(input: AdvancePlayInput): Promise<boolean> {
+  try {
+    await docClient.send(
+      new UpdateCommand({
+        TableName: PLAYERS_TABLE,
+        Key: { playerId: input.playerId },
+        UpdateExpression:
+          'SET playStreak = :n, bestPlayStreak = :best, lastPlayDate = :day, updatedAt = :now',
+        ConditionExpression: 'lastPlayDate = :yesterday',
+        ExpressionAttributeValues: {
+          ':n': input.playStreak,
+          ':best': input.bestPlayStreak,
+          ':day': input.day,
+          ':yesterday': input.yesterday,
+          ':now': input.now,
+        },
+      }),
+    );
+    return true;
+  } catch (err) {
+    if (isConditionalCheckFailed(err)) {
+      return false;
+    }
+    throw err;
+  }
+}
+
+/** Inputs to the play-streak reset (gap ≥ 2 with no freeze, S2). */
+export interface ResetPlayInput {
+  playerId: string;
+  playStreak: number;
+  bestPlayStreak: number;
+  day: string;
+  now: string;
+}
+
+/**
+ * Reset the play streak (`SET playStreak = :n` — never `ADD`). Mirrors
+ * `resetLoginStreak` on the play axis; guarded by `lastPlayDate <> :day` so a
+ * racing duplicate that already wrote the day cannot reset on top of it
+ * (the activity merge is the primary gate). Returns `false` if the guard fails.
+ */
+export async function resetPlayStreak(input: ResetPlayInput): Promise<boolean> {
+  try {
+    await docClient.send(
+      new UpdateCommand({
+        TableName: PLAYERS_TABLE,
+        Key: { playerId: input.playerId },
+        UpdateExpression:
+          'SET playStreak = :n, bestPlayStreak = :best, lastPlayDate = :day, updatedAt = :now',
+        ConditionExpression: 'lastPlayDate <> :day',
+        ExpressionAttributeValues: {
+          ':n': input.playStreak,
+          ':best': input.bestPlayStreak,
+          ':day': input.day,
+          ':now': input.now,
+        },
+      }),
+    );
+    return true;
+  } catch (err) {
+    if (isConditionalCheckFailed(err)) {
+      return false;
+    }
+    throw err;
+  }
+}
+
 /** True for a DynamoDB conditional-check failure (idempotency no-op). */
 function isConditionalCheckFailed(err: unknown): boolean {
   return (
