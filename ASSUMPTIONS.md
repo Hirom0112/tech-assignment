@@ -33,6 +33,14 @@ blockers go in `BLOCKED.md` instead, not here.
 - **Precedence.** CLAUDE.md Inv 7 makes API_CONTRACT.md canonical for the wire error shape **and status codes** ("status codes match API_CONTRACT.md exactly"). The §3 catalogue (400/401/403/404/409/500) is the shipped contract; ARCHITECTURE.md §7's 503 is a design-note detail that loses to the explicit wire contract.
 - **Action.** Implement the S7 error-normalizing middleware against the §3 codes (500 for DB-down). **Correct ARCHITECTURE.md §7** to say 500 `InternalError` (or note 503 as a future refinement) during the S7 docs pass.
 
+## A-4 — `serverless-esbuild` version pin is unsatisfiable
+
+- **Conflict.** TECH_STACK.md §2 and TODO S0-1 pin `serverless-esbuild ^0.8.0`. No `0.8.x` exists on npm; that package's only `0.x` releases predate the modern esbuild peer-dep era and do not transpile `.ts` handlers for current `serverless-offline`. The requirement ("`serverless offline` runs `.ts` handlers", PLAN S0 top-risk-2) cannot be met at `^0.8.0`.
+- **Resolution.** Pin **`serverless-esbuild ^1.55.0`** (installs the 1.x line; esbuild 0.28 comes in transitively). Verified by the S0 live health curl — esbuild transpiled `handler.ts` and serverless-offline served `GET /api/v1/health` → `{service:'streaks-api',status:'ok'}`.
+- **Precedence.** A higher-doc *requirement* (PLAN/PROJECT: the service must build and run in TS) overrides a lower note's version literal (CLAUDE.md §Doc-precedence: "If process blocks a higher doc's requirement, the requirement wins; fix the process note afterward"). The version string is a stale literal, not a design decision.
+- **Action.** **Correct TECH_STACK.md §2 and TODO S0-1** to `serverless-esbuild ^1.55.0` during the S7 docs pass.
+- **Sub-note (dep budget).** Two dev-only **type** packages — `@types/jest`, `@types/express` — were added beyond the literal toolchain list. TECH_STACK §2/§3 explicitly excludes `@types/*` from the "5 new installs" budget; the 5 net installs remain typescript/ts-jest/serverless-esbuild/@types/luxon (dev) + luxon (prod). STND-5 intact.
+
 ---
 
 ## Carried (already-documented in the docs, not conflicts — listed so they aren't re-litigated)

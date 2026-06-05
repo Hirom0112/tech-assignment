@@ -33,7 +33,7 @@
 - [x] S0-9: Create layered dirs `src/handlers/ src/services/ src/repositories/ src/domain/ src/config/`; port `src/config/constants.js`→`constants.ts` + `milestones.ts` with the **identical** `MILESTONES` ladder (3→50/100, 7→150/300, 14→400/800, 30→1000/2000, 60→2500/5000, 90→5000/10000) and `getMilestone`/`getAchievedMilestones`. *(check: a unit test asserts `getMilestone(7).loginReward===150`)*
 - [x] S0-10: Wire env in `docker-compose.yml` `streaks-api` + `.env.example` + `serverless.offline.yml`: `STREAKS_REWARDS_TABLE=streaks-rewards`, `STREAKS_FREEZE_HISTORY_TABLE=streaks-freeze-history`, `INTERNAL_API_SECRET=dev-internal-secret`, `FREEZE_CRON_ENABLED=false` (STND-2). Do **not** change table names/keys (CLAUDE.md Inv 11). *(check: `grep -E 'STREAKS_REWARDS_TABLE|STREAKS_FREEZE_HISTORY_TABLE|INTERNAL_API_SECRET|FREEZE_CRON_ENABLED' docker-compose.yml .env.example` finds all 4)*
 - [x] S0-11: Add `.githooks/pre-push` running `tsc --noEmit` + `npm test` for changed packages; document `git config core.hooksPath .githooks` in README setup (CLAUDE.md §4). *(check: hook is executable; a deliberate type error blocks push without `--no-verify`)*
-- [ ] S0-12 GATE: **Slice S0 DoD** — `npm run typecheck` 0 errors; `npm test` green; `docker compose --profile streaks up` then `curl localhost:5001/api/v1/health` → `{service:'streaks-api',status:'ok'}`; env grep passes. Write `SLICE_REPORTS/slice-0.md`.
+- [x] S0-12 GATE: **Slice S0 DoD** — `npm run typecheck` 0 errors; `npm test` green; `docker compose --profile streaks up` then `curl localhost:5001/api/v1/health` → `{service:'streaks-api',status:'ok'}`; env grep passes. Write `SLICE_REPORTS/slice-0.md`.
 
 ---
 
