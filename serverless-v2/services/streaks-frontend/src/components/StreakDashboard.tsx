@@ -27,6 +27,7 @@ import PersonalBest from './PersonalBest';
 import FreezeStatus from './FreezeStatus';
 import RewardHistory from './RewardHistory';
 import ThemeSwitcher from './ThemeSwitcher';
+import ShareButton from './ShareButton';
 
 /** UI display clamp (FR-1.7) — true value can exceed 365, display does not. */
 const DISPLAY_CAP = 365;
@@ -85,6 +86,7 @@ export default function StreakDashboard() {
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
           <ThemeSwitcher />
+          <ShareButton />
           <Button
             variant="contained"
             size="large"
