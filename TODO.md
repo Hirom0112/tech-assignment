@@ -93,8 +93,8 @@
 - [x] S3-10 RED: `dynamo.repository.test.ts › awardMilestone transaction` → one `TransactWriteCommand` bundling player `Update` + activity `Put` + `streaks-rewards` `Put` (carrying `pointTxnType:'streak_bonus'` + `notification` Map) with `attribute_not_exists(rewardId)` (DATA_MODEL.md §8). *(check: red)*
 - [x] S3-11 GREEN: `awardMilestone` in `dynamo.repository.ts`; route check-in/hand-completed milestone-crossings through it, non-milestone writes stay plain conditional writes. *(check: green)*
 - [x] S3-12: `src/handlers/rewards.ts` (FR-5.4) → `GET …/rewards` top-level array newest-first (pattern H), each element §4.4 shape incl. `notification`; empty ⇒ `[]`. *(check: typecheck clean)*
-- [~] S3-13 RED: `__tests__/integration/milestone.int.test.ts` (the rubric flow) → drive a player to a login milestone ⇒ `milestoneEarned` on the crossing, `null` next; `GET …/rewards` has exactly one reward with right points + notification. *(check: red then green)*
-- [~] S3-14 GREEN: pass the integration test. *(check: `npm test` green)*
+- [x] S3-13 RED: `__tests__/integration/milestone.int.test.ts` (the rubric flow) → drive a player to a login milestone ⇒ `milestoneEarned` on the crossing, `null` next; `GET …/rewards` has exactly one reward with right points + notification. *(check: red then green)*
+- [x] S3-14 GREEN: pass the integration test. *(check: `npm test` green)*
 - [ ] S3-15 GATE: **Slice S3 DoD** — `npm test` green incl. once-per-instance + re-award + integration; live milestone drive shows the reward; second crossing after reset shows two rewards. Write `SLICE_REPORTS/slice-3.md`.
 
 ---
