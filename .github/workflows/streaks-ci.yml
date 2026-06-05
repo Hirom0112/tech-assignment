@@ -1,0 +1,132 @@
+# Streaks CI (NFR-10) — full parity with the .githooks/pre-push hook.
+#
+# Per package, this runs the SAME commands the pre-push hook runs locally, so a
+# red CI means a red push and vice versa (CLAUDE.md §4):
+#   streaks-api      → npm run typecheck (tsc --noEmit) + npm test (jest)
+#   streaks-frontend → npm run build (tsc && vite build, the TS check) + npm test (vitest run)
+#
+# The backend integration tests hit DynamoDB Local on :8000 (see jest.setup.ts:
+# DYNAMODB_ENDPOINT=http://localhost:8000, creds local/local). We run
+# amazon/dynamodb-local as a service container and create the 4 streaks tables
+# (mirroring docker-compose.yml's dynamodb-init) before the suite so the FULL
+# suite — unit + integration — runs green in CI.
+name: Streaks CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  streaks-api:
+    name: Streaks API (typecheck + jest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: serverless-v2/services/streaks-api
+    # DynamoDB Local for the integration suite (jest.setup.ts points the SDK at
+    # http://localhost:8000 with local/local creds). The host port 8000 maps to
+    # the container so localhost:8000 resolves from the job's steps.
+    services:
+      dynamodb-local:
+        image: amazon/dynamodb-local
+        ports:
+          - 8000:8000
+    env:
+      # The repo defaults already resolve to these names (dynamo.repository.ts),
+      # but we set them explicitly so CI is self-documenting and table creation
+      # below stays in lockstep with the app.
+      DYNAMODB_ENDPOINT: http://localhost:8000
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: local
+      AWS_SECRET_ACCESS_KEY: local
+      STAGE: test
+      STREAKS_PLAYERS_TABLE: streaks-players
+      STREAKS_ACTIVITY_TABLE: streaks-activity
+      STREAKS_REWARDS_TABLE: streaks-rewards
+      STREAKS_FREEZE_HISTORY_TABLE: streaks-freeze-history
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # `shared` is a symlink to serverless-v2/shared (its own package); the api
+      # imports shared/config/dynamo at runtime, so its deps must be installed.
+      - name: Install shared dependencies
+        run: npm install
+        working-directory: serverless-v2/shared
+
+      - name: Install streaks-api dependencies
+        run: npm install
+
+      # Create the 4 streaks tables in DynamoDB Local (mirrors docker-compose.yml
+      # dynamodb-init). The integration tests assume the tables already exist.
+      - name: Create DynamoDB tables
+        run: |
+          set -euo pipefail
+          OPTS="--endpoint-url http://localhost:8000 --region us-east-1"
+
+          aws dynamodb create-table $OPTS \
+            --table-name streaks-players \
+            --attribute-definitions AttributeName=playerId,AttributeType=S \
+            --key-schema AttributeName=playerId,KeyType=HASH \
+            --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5
+
+          aws dynamodb create-table $OPTS \
+            --table-name streaks-activity \
+            --attribute-definitions \
+              AttributeName=playerId,AttributeType=S \
+              AttributeName=date,AttributeType=S \
+            --key-schema AttributeName=playerId,KeyType=HASH AttributeName=date,KeyType=RANGE \
+            --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5
+
+          aws dynamodb create-table $OPTS \
+            --table-name streaks-rewards \
+            --attribute-definitions \
+              AttributeName=playerId,AttributeType=S \
+              AttributeName=rewardId,AttributeType=S \
+            --key-schema AttributeName=playerId,KeyType=HASH AttributeName=rewardId,KeyType=RANGE \
+            --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5
+
+          aws dynamodb create-table $OPTS \
+            --table-name streaks-freeze-history \
+            --attribute-definitions \
+              AttributeName=playerId,AttributeType=S \
+              AttributeName=date,AttributeType=S \
+            --key-schema AttributeName=playerId,KeyType=HASH AttributeName=date,KeyType=RANGE \
+            --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5
+
+          echo "All DynamoDB streaks tables created."
+
+      - name: Typecheck (tsc --noEmit)
+        run: npm run typecheck
+
+      - name: Test (jest, unit + integration)
+        run: npm test
+
+  streaks-frontend:
+    name: Streaks Frontend (build + vitest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: serverless-v2/services/streaks-frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install streaks-frontend dependencies
+        run: npm install
+
+      # No `typecheck` script on the frontend; `build` (tsc && vite build) is the
+      # TS check, matching the pre-push hook.
+      - name: TypeScript check (tsc && vite build)
+        run: npm run build
+
+      - name: Test (vitest run)
+        run: npm test
