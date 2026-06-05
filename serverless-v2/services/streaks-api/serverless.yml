@@ -17,3 +17,16 @@ functions:
     handler: handler.api
     events:
       - httpApi: '*'
+
+plugins:
+  - serverless-esbuild
+
+custom:
+  esbuild:
+    bundle: true
+    minify: false
+    sourcemap: true
+    target: node20
+    platform: node
+    exclude:
+      - '@aws-sdk/*'

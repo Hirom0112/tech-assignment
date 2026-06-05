@@ -9,6 +9,10 @@ provider:
   region: us-east-1
   environment:
     STAGE: local
+    STREAKS_REWARDS_TABLE: streaks-rewards
+    STREAKS_FREEZE_HISTORY_TABLE: streaks-freeze-history
+    INTERNAL_API_SECRET: dev-internal-secret
+    FREEZE_CRON_ENABLED: false
 
 functions:
   api:
@@ -17,9 +21,18 @@ functions:
       - httpApi: '*'
 
 plugins:
+  - serverless-esbuild
   - serverless-offline
 
 custom:
+  esbuild:
+    bundle: true
+    minify: false
+    sourcemap: true
+    target: node20
+    platform: node
+    exclude:
+      - '@aws-sdk/*'
   serverless-offline:
     httpPort: 5001
     lambdaPort: 5003
