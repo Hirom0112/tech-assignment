@@ -101,22 +101,22 @@
 
 ## Slice S4 — Freeze protection  *(FR-3, FR-5.5)*
 
-- [ ] S4-1 RED: `__tests__/services/freeze.service.test.ts › missed one day, freeze available` → `lastLoginDate=2 days ago, freezesAvailable=1, loginStreak=9` ⇒ freeze consumed (`freezesAvailable=0`), streak preserved 9→10 after check-in, `streaks-freeze-history` row for the missed day, activity `freezeUsed:true` (FR-3.4). *(check: red)*
-- [ ] S4-2 GREEN: `src/services/freeze.service.ts` `gap===2 && freezesAvailable>0` consume branch (ARCHITECTURE.md §5c step 3). *(check: green)*
-- [ ] S4-3 RED: `freeze.service.test.ts › missed two days, one freeze` → 2 missed days, 1 freeze ⇒ first covered, streak **resets** `loginStreak=1` on the second (spec §Edge 4). *(check: red)*
-- [ ] S4-4 GREEN: `gap>=3` (or `gap===2` no freeze) ⇒ no protection. *(check: green)*
-- [ ] S4-5 RED: `freeze.service.test.ts › freeze covers both axes` → one consumed freeze protects login AND play for the same missed day (FR-3.6). *(check: red)*
-- [ ] S4-6 GREEN: single consume applies to both transitions. *(check: green)*
-- [ ] S4-7 RED: `freeze.service.test.ts › monthly grant on the 1st` → `lastFreezeGrantDate` prior `YYYY-MM` ⇒ `freezesAvailable+=1`, set to current `YYYY-MM`; same month ⇒ no grant (FR-3.1, `YYYY-MM` string compare, spec §Edge 5). *(check: red)*
-- [ ] S4-8 GREEN: monthly-grant branch (ARCHITECTURE.md §5c step 5). *(check: green)*
-- [ ] S4-9 RED: `dynamo.repository.test.ts › consumeFreeze + grant` → `consumeFreeze` is one `TransactWriteCommand` (player `Update freezesAvailable-1, freezesUsedThisMonth+1` cond `freezesAvailable > :zero`; freeze-history `Put` cond `attribute_not_exists(#date)`; activity `freezeUsed=true`); `grantFreezeAdmin` uses `ADD freezesAvailable :n` (pattern J). *(check: red)*
-- [ ] S4-10 GREEN: add `consumeFreeze` + `grantFreezeAdmin` to `dynamo.repository.ts`. *(check: green)*
-- [ ] S4-11: Wire `freeze.service` at the **top** of check-in and hand-completed, **before** the transition (ARCHITECTURE.md §5c, CLAUDE.md Inv 5). *(check: a check-in after a 1-day gap with a freeze yields `freezeConsumed:true`)*
-- [ ] S4-12: `src/handlers/freezes.ts` (FR-5.5) → `GET …/freezes` `{freezesAvailable, freezesUsedThisMonth, lastFreezeGrantDate, history[]}` (consumptions newest-first, pattern I; §4.5). *(check: typecheck clean)*
-- [ ] S4-13: `src/handlers/admin.ts` `POST …/admin/streaks/freezes/grant` (FR-3.3) — `internalAuth` (403), `count>=1` (400 else), unknown player `404`, exceed-`99`-cap `409` (§4.7, ASSUMPTIONS); response per §4.7. *(check: typecheck clean)*
-- [ ] S4-14 RED: `__tests__/integration/freeze.int.test.ts` → seed a 1-day gap + 1 freeze, check-in ⇒ `freezeConsumed:true`, streak preserved, `GET …/freezes` balance down + history row; admin-grant raises balance; over-cap ⇒ `409`. *(check: red then green)*
-- [ ] S4-15 GREEN: pass the integration test. *(check: `npm test` green)*
-- [ ] S4-16 GATE: **Slice S4 DoD** — `npm test` green incl. one-day-protected, two-day-reset, both-axes, monthly-grant; live admin-grant + gap + check-in shows `freezeConsumed:true`. Write `SLICE_REPORTS/slice-4.md`.
+- [x] S4-1 RED: `__tests__/services/freeze.service.test.ts › missed one day, freeze available` → `lastLoginDate=2 days ago, freezesAvailable=1, loginStreak=9` ⇒ freeze consumed (`freezesAvailable=0`), streak preserved 9→10 after check-in, `streaks-freeze-history` row for the missed day, activity `freezeUsed:true` (FR-3.4). *(check: red)*
+- [x] S4-2 GREEN: `src/services/freeze.service.ts` `gap===2 && freezesAvailable>0` consume branch (ARCHITECTURE.md §5c step 3). *(check: green)*
+- [x] S4-3 RED: `freeze.service.test.ts › missed two days, one freeze` → 2 missed days, 1 freeze ⇒ first covered, streak **resets** `loginStreak=1` on the second (spec §Edge 4). *(check: red)*
+- [x] S4-4 GREEN: `gap>=3` (or `gap===2` no freeze) ⇒ no protection. *(check: green)*
+- [x] S4-5 RED: `freeze.service.test.ts › freeze covers both axes` → one consumed freeze protects login AND play for the same missed day (FR-3.6). *(check: red)*
+- [x] S4-6 GREEN: single consume applies to both transitions. *(check: green)*
+- [x] S4-7 RED: `freeze.service.test.ts › monthly grant on the 1st` → `lastFreezeGrantDate` prior `YYYY-MM` ⇒ `freezesAvailable+=1`, set to current `YYYY-MM`; same month ⇒ no grant (FR-3.1, `YYYY-MM` string compare, spec §Edge 5). *(check: red)*
+- [x] S4-8 GREEN: monthly-grant branch (ARCHITECTURE.md §5c step 5). *(check: green)*
+- [x] S4-9 RED: `dynamo.repository.test.ts › consumeFreeze + grant` → `consumeFreeze` is one `TransactWriteCommand` (player `Update freezesAvailable-1, freezesUsedThisMonth+1` cond `freezesAvailable > :zero`; freeze-history `Put` cond `attribute_not_exists(#date)`; activity `freezeUsed=true`); `grantFreezeAdmin` uses `ADD freezesAvailable :n` (pattern J). *(check: red)*
+- [x] S4-10 GREEN: add `consumeFreeze` + `grantFreezeAdmin` to `dynamo.repository.ts`. *(check: green)*
+- [x] S4-11: Wire `freeze.service` at the **top** of check-in and hand-completed, **before** the transition (ARCHITECTURE.md §5c, CLAUDE.md Inv 5). *(check: a check-in after a 1-day gap with a freeze yields `freezeConsumed:true`)*
+- [x] S4-12: `src/handlers/freezes.ts` (FR-5.5) → `GET …/freezes` `{freezesAvailable, freezesUsedThisMonth, lastFreezeGrantDate, history[]}` (consumptions newest-first, pattern I; §4.5). *(check: typecheck clean)*
+- [x] S4-13: `src/handlers/admin.ts` `POST …/admin/streaks/freezes/grant` (FR-3.3) — `internalAuth` (403), `count>=1` (400 else), unknown player `404`, exceed-`99`-cap `409` (§4.7, ASSUMPTIONS); response per §4.7. *(check: typecheck clean)*
+- [x] S4-14 RED: `__tests__/integration/freeze.int.test.ts` → seed a 1-day gap + 1 freeze, check-in ⇒ `freezeConsumed:true`, streak preserved, `GET …/freezes` balance down + history row; admin-grant raises balance; over-cap ⇒ `409`. *(check: red then green)*
+- [x] S4-15 GREEN: pass the integration test. *(check: `npm test` green)*
+- [x] S4-16 GATE: **Slice S4 DoD** — `npm test` green incl. one-day-protected, two-day-reset, both-axes, monthly-grant; live admin-grant + gap + check-in shows `freezeConsumed:true`. Write `SLICE_REPORTS/slice-4.md`.
 
 ---
 
