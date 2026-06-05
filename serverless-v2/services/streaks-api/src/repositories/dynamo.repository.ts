@@ -795,6 +795,30 @@ export async function queryFreezeHistory(playerId: string): Promise<FreezeRecord
 }
 
 /**
+ * Fetch one UTC calendar month of a player's activity rows for the heat-map
+ * calendar (DATA_MODEL.md §7 pattern F, FR-5.3, NFR-8). A SINGLE `Query`
+ * keyed on the PK with `begins_with(#date, :ym)` on the SK (`:ym = "YYYY-MM"`) —
+ * never a `Scan` (Inv 8). `date` is a DynamoDB reserved word, so the SK is
+ * aliased as `#date`. Rows come back ascending by `date` (the default forward
+ * SK order); a month with no activity → `[]`. The calendar service densifies
+ * these into the one-entry-per-day array.
+ */
+export async function queryMonth(
+  playerId: string,
+  yearMonth: string,
+): Promise<ActivityDay[]> {
+  const result = await docClient.send(
+    new QueryCommand({
+      TableName: ACTIVITY_TABLE,
+      KeyConditionExpression: 'playerId = :p AND begins_with(#date, :ym)',
+      ExpressionAttributeNames: { '#date': 'date' },
+      ExpressionAttributeValues: { ':p': playerId, ':ym': yearMonth },
+    }),
+  );
+  return (result.Items as ActivityDay[] | undefined) ?? [];
+}
+
+/**
  * List a player's earned rewards, newest-first (DATA_MODEL.md §7 pattern H,
  * FR-5.4). A single `Query` on the PK with `ScanIndexForward=false` returns the
  * sortable time-ordered `rewardId`s newest-first directly — a `Scan` is never

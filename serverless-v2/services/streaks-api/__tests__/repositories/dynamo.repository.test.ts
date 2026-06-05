@@ -25,6 +25,7 @@ import {
   consumeFreeze,
   grantFreezeAdmin,
   queryFreezeHistory,
+  queryMonth,
 } from '../../src/repositories/dynamo.repository';
 import type {
   ActivityDay,
@@ -475,6 +476,30 @@ describe('dynamo.repository — grantFreezeAdmin (pattern J, cap 99)', () => {
     await expect(
       grantFreezeAdmin({ playerId: 'p1', count: 50, now: '2026-06-05T09:00:00.000Z' }),
     ).rejects.toMatchObject({ name: 'ConditionalCheckFailedException' });
+  });
+});
+
+describe('dynamo.repository — queryMonth (pattern F, NFR-8 no Scan)', () => {
+  it('issues ONE QueryCommand with begins_with(#date, :ym) + #date alias (no Scan)', async () => {
+    send.mockResolvedValueOnce({ Items: [sampleActivity()] });
+    const rows = await queryMonth('streak-001', '2026-06');
+    expect(send).toHaveBeenCalledTimes(1);
+
+    const input = lastInput();
+    expect(input.TableName).toBe('streaks-activity');
+    // begins_with on the SK (#date) keyed on the PK — a single bounded Query.
+    expect(input.KeyConditionExpression).toContain('playerId = :p');
+    expect(input.KeyConditionExpression).toContain('begins_with(#date, :ym)');
+    // `date` is a DynamoDB reserved word → must be aliased.
+    expect(input.ExpressionAttributeNames).toMatchObject({ '#date': 'date' });
+    expect(input.ExpressionAttributeValues).toMatchObject({ ':p': 'streak-001', ':ym': '2026-06' });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ playerId: 'p1', date: '2026-06-05' });
+  });
+
+  it('returns [] when the month has no activity rows', async () => {
+    send.mockResolvedValueOnce({ Items: undefined });
+    expect(await queryMonth('nobody', '2026-06')).toEqual([]);
   });
 });
 
