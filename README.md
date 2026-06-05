@@ -197,13 +197,13 @@ Depth: [`ARCHITECTURE.md`](ARCHITECTURE.md) (flows + ADRs), [`DATA_MODEL.md`](DA
 ## 5. Testing
 
 ```bash
-# Backend — 141 tests (Jest + ts-jest)
+# Backend — 161 tests (Jest + ts-jest)
 cd serverless-v2/services/streaks-api && npm install && npm test
 
 # Backend typecheck (strict TS)
 npm run typecheck            # tsc --noEmit
 
-# Frontend — 18 tests (Vitest + RTL + MSW)
+# Frontend — 29 tests (Vitest + RTL + MSW)
 cd serverless-v2/services/streaks-frontend && npm install && npm test
 ```
 
