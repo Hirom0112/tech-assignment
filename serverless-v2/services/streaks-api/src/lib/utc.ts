@@ -51,6 +51,21 @@ export function nowIso(): string {
 }
 
 /**
+ * Epoch milliseconds for an ISO instant — the single place day/time math turns
+ * an instant into a sortable integer (Inv 1). Used to build the time-ordered,
+ * zero-padded `rewardId` prefix so a reward `Query` with `ScanIndexForward=false`
+ * yields newest-first directly (ASSUMPTIONS A-7). Throws on an invalid instant.
+ * @example epochMillis('2026-02-20T08:15:02.000Z') => 1771575302000
+ */
+export function epochMillis(iso: string): number {
+  const ms = DateTime.fromISO(iso, { zone: 'utc' }).toMillis();
+  if (Number.isNaN(ms)) {
+    throw new Error(`Invalid ISO instant: ${iso}`);
+  }
+  return ms;
+}
+
+/**
  * True iff `value` parses as a valid ISO-8601 instant/date (Luxon-validated).
  * The single place that decides "is this a usable ISO timestamp" so handlers
  * never hand-roll `new Date()` validation (Inv 1).

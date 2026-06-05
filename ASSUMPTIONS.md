@@ -56,12 +56,19 @@ blockers go in `BLOCKED.md` instead, not here.
 - **Action.** Reconcile DATA_MODEL.md §7 pattern E wording to the conditional form during the S7 docs pass.
 - **Sub-note (test-infra quirk, not product):** supertest `.send(object)` hits a hoisted `mime@1.6.0` lacking `getType`; integration tests must `.set('Content-Type','application/json')` before `.send()` (done). Consider deduping `mime` in the lockfile later.
 
+## A-7 — `rewardId` is a zero-dep time-ordered string, not `ulid`
+
+- **Decision (resolves the carried `rewardId` note below).** The carried note said "install `ulid` only because pattern H uses `ScanIndexForward=false`". We instead use a **zero-dep, lexicographically-sortable, time-ordered** id: a 15-digit zero-padded epoch-millis prefix + a short random base-36 suffix — `${String(epochMillis(now)).padStart(15,'0')}-${rand}` (`src/services/reward.service.ts` `makeRewardId`). Epoch-millis is derived from the request's `now`/`completedAt` via `lib/utc.ts` `epochMillis` (Inv 1 — all time math stays in `utc.ts`).
+- **Why zero-dep over ulid.** STND-5 caps the backend dep budget at 5 installs and it is already at 5; adding `ulid` would breach it for no functional gain. A 15-digit pad covers epoch-millis through the year ~5138, so the prefix sorts ascending by time exactly like a ULID's time component — a reward `Query` with `ScanIndexForward=false` returns newest-first **directly** (DATA_MODEL.md §7 pattern H, NFR-8 no-Scan), which is the only property pattern H requires. The random suffix disambiguates same-millisecond awards.
+- **Precedence.** DATA_MODEL.md §4 *recommends* ULID but explicitly allows "an acceptable fallback" that preserves sortable-by-time ordering; this id satisfies that, so no doc conflict — the ladder/Query semantics are unchanged. Minimal-deps house style + STND-5 win over the ULID preference.
+- **Action.** None pending. Reconcile the wording of DATA_MODEL.md §4 ("`rewardId` = ULID") to "sortable time-ordered id (ULID or zero-dep epoch-millis prefix)" in the S7 docs pass.
+
 ---
 
 ## Carried (already-documented in the docs, not conflicts — listed so they aren't re-litigated)
 
 - **Lambda runtime skew** `nodejs20.x` (serverless.yml) vs Node 22 (docker/local) — intentional, accepted (ARCHITECTURE.md §10, TECH_STACK.md §1). Build target `ES2022`/`--target=node20`.
-- **`rewardId` = ULID** preferred for sortable rewards Query; timestamp-prefixed string is the zero-dep fallback. Install `ulid` only because pattern H uses `ScanIndexForward=false` (TECH_STACK.md §2). Confirm/record the actual choice in S3.
+- **`rewardId` = ULID** was preferred for sortable rewards Query; **resolved in S3 → see A-7**: we ship the zero-dep epoch-millis-prefixed string (no `ulid` install) to keep STND-5 intact while preserving the `ScanIndexForward=false` newest-first ordering pattern H needs.
 - **Zero-state `GET /player/streaks`** returns a `200` all-zeros record for any authenticated player rather than `404` (API_CONTRACT.md §4.1 canonical behavior), so the dashboard never errors on a new user.
 - **Admin-grant soft cap `99`** on `freezesAvailable`; a grant that would exceed it returns `409 Conflict` — the only documented use of 409 (API_CONTRACT.md §4.7). Confirm in S4.
 - **Share-card PNG** is optional; SVG is the guaranteed default. `satori`/`@resvg/resvg-js` stay opt-in and only count against the dep budget if PNG is actually built (TECH_STACK.md §2, S9).

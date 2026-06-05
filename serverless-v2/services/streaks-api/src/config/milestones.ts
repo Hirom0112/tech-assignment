@@ -35,3 +35,12 @@ export function getMilestone(streakLength: number): Milestone | null {
 export function getAchievedMilestones(streakLength: number): Milestone[] {
   return MILESTONES.filter((m) => m.days <= streakLength);
 }
+
+/**
+ * The next ladder rung strictly above `days`, or null at/above the top rung
+ * (90). Single source for "what unlocks next" in milestone notification copy
+ * (FR-7) and the next-milestone view, so the ladder lives in exactly one array.
+ */
+export function getNextMilestone(days: number): Milestone | null {
+  return MILESTONES.find((m) => m.days > days) ?? null;
+}

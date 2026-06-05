@@ -81,20 +81,20 @@
 
 ## Slice S3 — Milestone rewards  *(FR-2; seeds FR-7)*
 
-- [ ] S3-1 RED: `__tests__/services/reward.service.test.ts › exact milestone fires once` → advance to `7` ⇒ reward `{type:'login_milestone',milestone:7,points:150,streakCount:7}`; advance to `8` ⇒ none (FR-2.1/2.3). *(check: red)*
-- [ ] S3-2 GREEN: `src/services/reward.service.ts` exact-match `getMilestone(n)` detection. *(check: green)*
-- [ ] S3-3 RED: `reward.service.test.ts › re-award after reset` → reach 7, reset, reach 7 ⇒ 2nd reward, new `rewardId` (FR-2.2). *(check: red)*
-- [ ] S3-4 GREEN: detection keyed on this advance hitting the exact value (ARCHITECTURE.md §5d step 2). *(check: green)*
-- [ ] S3-5 RED: `reward.service.test.ts › play vs login points` → play 7 ⇒ `points:300`; play 3 ⇒ `100` (DATA_MODEL.md §9). *(check: red)*
-- [ ] S3-6 GREEN: points from `loginReward`/`playReward` by `type`. *(check: green)*
-- [ ] S3-7 RED: `reward.service.test.ts › notification payload` → reward carries `notification:{title,body,deepLink:'hijackpoker://streaks',milestone,type}`, body milestone-aware login-vs-play e.g. `"You earned 150 bonus points for a 7-day login streak. 14 days unlocks 400!"` (FR-7.3, API_CONTRACT.md §4.4). *(check: red)*
-- [ ] S3-8 GREEN: payload builder in `reward.service.ts`. *(check: green)*
-- [ ] S3-9: Decide `rewardId` — install `ulid ^2.3.0` (pattern H uses `ScanIndexForward=false`) or timestamp-prefixed string; record the choice in `ASSUMPTIONS.md` (TECH_STACK.md §2 optional-dep justification). *(check: ASSUMPTIONS updated; if installed, STND-5 still ≤ budget)*
-- [ ] S3-10 RED: `dynamo.repository.test.ts › awardMilestone transaction` → one `TransactWriteCommand` bundling player `Update` + activity `Put` + `streaks-rewards` `Put` (carrying `pointTxnType:'streak_bonus'` + `notification` Map) with `attribute_not_exists(rewardId)` (DATA_MODEL.md §8). *(check: red)*
-- [ ] S3-11 GREEN: `awardMilestone` in `dynamo.repository.ts`; route check-in/hand-completed milestone-crossings through it, non-milestone writes stay plain conditional writes. *(check: green)*
-- [ ] S3-12: `src/handlers/rewards.ts` (FR-5.4) → `GET …/rewards` top-level array newest-first (pattern H), each element §4.4 shape incl. `notification`; empty ⇒ `[]`. *(check: typecheck clean)*
-- [ ] S3-13 RED: `__tests__/integration/milestone.int.test.ts` (the rubric flow) → drive a player to a login milestone ⇒ `milestoneEarned` on the crossing, `null` next; `GET …/rewards` has exactly one reward with right points + notification. *(check: red then green)*
-- [ ] S3-14 GREEN: pass the integration test. *(check: `npm test` green)*
+- [x] S3-1 RED: `__tests__/services/reward.service.test.ts › exact milestone fires once` → advance to `7` ⇒ reward `{type:'login_milestone',milestone:7,points:150,streakCount:7}`; advance to `8` ⇒ none (FR-2.1/2.3). *(check: red)*
+- [x] S3-2 GREEN: `src/services/reward.service.ts` exact-match `getMilestone(n)` detection. *(check: green)*
+- [x] S3-3 RED: `reward.service.test.ts › re-award after reset` → reach 7, reset, reach 7 ⇒ 2nd reward, new `rewardId` (FR-2.2). *(check: red)*
+- [x] S3-4 GREEN: detection keyed on this advance hitting the exact value (ARCHITECTURE.md §5d step 2). *(check: green)*
+- [x] S3-5 RED: `reward.service.test.ts › play vs login points` → play 7 ⇒ `points:300`; play 3 ⇒ `100` (DATA_MODEL.md §9). *(check: red)*
+- [x] S3-6 GREEN: points from `loginReward`/`playReward` by `type`. *(check: green)*
+- [x] S3-7 RED: `reward.service.test.ts › notification payload` → reward carries `notification:{title,body,deepLink:'hijackpoker://streaks',milestone,type}`, body milestone-aware login-vs-play e.g. `"You earned 150 bonus points for a 7-day login streak. 14 days unlocks 400!"` (FR-7.3, API_CONTRACT.md §4.4). *(check: red)*
+- [x] S3-8 GREEN: payload builder in `reward.service.ts`. *(check: green)*
+- [x] S3-9: Decide `rewardId` — install `ulid ^2.3.0` (pattern H uses `ScanIndexForward=false`) or timestamp-prefixed string; record the choice in `ASSUMPTIONS.md` (TECH_STACK.md §2 optional-dep justification). *(check: ASSUMPTIONS updated; if installed, STND-5 still ≤ budget)*
+- [~] S3-10 RED: `dynamo.repository.test.ts › awardMilestone transaction` → one `TransactWriteCommand` bundling player `Update` + activity `Put` + `streaks-rewards` `Put` (carrying `pointTxnType:'streak_bonus'` + `notification` Map) with `attribute_not_exists(rewardId)` (DATA_MODEL.md §8). *(check: red)*
+- [~] S3-11 GREEN: `awardMilestone` in `dynamo.repository.ts`; route check-in/hand-completed milestone-crossings through it, non-milestone writes stay plain conditional writes. *(check: green)*
+- [~] S3-12: `src/handlers/rewards.ts` (FR-5.4) → `GET …/rewards` top-level array newest-first (pattern H), each element §4.4 shape incl. `notification`; empty ⇒ `[]`. *(check: typecheck clean)*
+- [~] S3-13 RED: `__tests__/integration/milestone.int.test.ts` (the rubric flow) → drive a player to a login milestone ⇒ `milestoneEarned` on the crossing, `null` next; `GET …/rewards` has exactly one reward with right points + notification. *(check: red then green)*
+- [~] S3-14 GREEN: pass the integration test. *(check: `npm test` green)*
 - [ ] S3-15 GATE: **Slice S3 DoD** — `npm test` green incl. once-per-instance + re-award + integration; live milestone drive shows the reward; second crossing after reset shows two rewards. Write `SLICE_REPORTS/slice-3.md`.
 
 ---
