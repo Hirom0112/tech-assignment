@@ -168,12 +168,12 @@
 
 ## Slice S8 — Bonus: backend extras  *(FR-7, FR-8, FR-10) — only after S7 `[x]`*
 
-- [ ] S8-1: Audit the FR-7 `notification` payload against §4.4/§5.5 (`{title,body,deepLink,milestone,type}`), returned in `milestoneEarned` + `…/rewards`, content-only; add `deepLink` to the stored Map if missing. *(check: a rewards response carries the full payload)*
-- [ ] S8-2 RED: `__tests__/integration/admin-history.int.test.ts` → `GET …/admin/streaks/players/:id/history` with `X-Internal-Secret` ⇒ composite `{player,activity,rewards,freezes}` (§4.8); missing secret ⇒ `403` before lookup; unknown player ⇒ `404`. *(check: red)*
-- [ ] S8-3 GREEN: `admin.ts` history branch composing existing services (no new sub-shapes); reuses `INTERNAL_API_SECRET`. *(check: green)*
-- [ ] S8-4 RED: `freeze.service.test.ts › cron/lazy idempotency` → running the consume twice (cron + lazy) against the same missed day never double-consumes (per-day `attribute_not_exists(date)` guard, ARCHITECTURE.md §5f step 4). *(check: red)*
-- [ ] S8-5 GREEN: `src/handlers/scheduled-freeze.ts` — thin cron entry, paginated `Scan` of `streaks-players` (the **one** sanctioned Scan, NFR-8 exception) calling the **same** `freeze.service.consume` (ADR-2, never a parallel impl); wire `serverless.yml` `schedule` event `enabled: ${env:FREEZE_CRON_ENABLED,'false'}`. *(check: green; `serverless invoke local -f scheduledFreeze` runs)*
-- [ ] S8-6 GATE: **Slice S8 DoD** — `npm test` green incl. admin-history + cron-idempotency; `serverless invoke local -f scheduledFreeze` consumes a due freeze and does NOT double-consume on a second run / alongside a lazy check-in; admin history `403` without secret. Write `SLICE_REPORTS/slice-8.md`.
+- [x] S8-1: Audit the FR-7 `notification` payload against §4.4/§5.5 (`{title,body,deepLink,milestone,type}`), returned in `milestoneEarned` + `…/rewards`, content-only; add `deepLink` to the stored Map if missing. *(check: a rewards response carries the full payload)*
+- [x] S8-2 RED: `__tests__/integration/admin-history.int.test.ts` → `GET …/admin/streaks/players/:id/history` with `X-Internal-Secret` ⇒ composite `{player,activity,rewards,freezes}` (§4.8); missing secret ⇒ `403` before lookup; unknown player ⇒ `404`. *(check: red)*
+- [x] S8-3 GREEN: `admin.ts` history branch composing existing services (no new sub-shapes); reuses `INTERNAL_API_SECRET`. *(check: green)*
+- [x] S8-4 RED: `freeze.service.test.ts › cron/lazy idempotency` → running the consume twice (cron + lazy) against the same missed day never double-consumes (per-day `attribute_not_exists(date)` guard, ARCHITECTURE.md §5f step 4). *(check: red)*
+- [x] S8-5 GREEN: `src/handlers/scheduled-freeze.ts` — thin cron entry, paginated `Scan` of `streaks-players` (the **one** sanctioned Scan, NFR-8 exception) calling the **same** `freeze.service.consume` (ADR-2, never a parallel impl); wire `serverless.yml` `schedule` event `enabled: ${env:FREEZE_CRON_ENABLED,'false'}`. *(check: green; `serverless invoke local -f scheduledFreeze` runs)*
+- [x] S8-6 GATE: **Slice S8 DoD** — `npm test` green incl. admin-history + cron-idempotency; `serverless invoke local -f scheduledFreeze` consumes a due freeze and does NOT double-consume on a second run / alongside a lazy check-in; admin history `403` without secret. Write `SLICE_REPORTS/slice-8.md`.
 
 ---
 
