@@ -179,13 +179,13 @@
 
 ## Slice S9 — Bonus: share-card  *(FR-9)*
 
-- [ ] S9-1 RED: `__tests__/services/share.service.test.ts › renders brand SVG` → self-contained `<svg>` encoding `loginStreak`, `playStreak`, `bestLoginStreak`, Hijack wordmark + "Hot Streak" tie-in, dark/orange palette (§4.9). *(check: red)*
-- [ ] S9-2 GREEN: `src/lib/share-card.ts` — pure `(state)=>string` SVG template, zero-dep (TECH_STACK.md §1 locked default; NO satori/resvg unless PNG built). *(check: green)*
-- [ ] S9-3 RED: `share.service.test.ts › degrade never throws` → zero-state/new player ⇒ minimal fallback card, never error (§4.9). *(check: red)*
-- [ ] S9-4 GREEN: fallback path. *(check: green)*
-- [ ] S9-5: `src/handlers/share-card.ts` (FR-9.2) — player auth, read-only via `getPlayer`, `Content-Type: image/svg+xml`; render failure ⇒ 200 fallback, never 500 (ARCHITECTURE.md §7); `?format=png` only if rasterizer built. *(check: `curl …/share-card -H 'X-Player-Id: streak-001'` returns valid SVG)*
-- [ ] S9-6: Add a "Share" affordance to `StreakDashboard.tsx` opening/embedding the card (FR-9.2). *(check: dashboard renders the share control)*
-- [ ] S9-7 GATE: **Slice S9 DoD** — `npm test` green incl. renderer + degrade; live SVG returns; zero-state player still 200; dashboard Share works. Write `SLICE_REPORTS/slice-9.md`.
+- [x] S9-1 RED: `__tests__/services/share.service.test.ts › renders brand SVG` → self-contained `<svg>` encoding `loginStreak`, `playStreak`, `bestLoginStreak`, Hijack wordmark + "Hot Streak" tie-in, dark/orange palette (§4.9). *(check: red)*
+- [x] S9-2 GREEN: `src/lib/share-card.ts` — pure `(state)=>string` SVG template, zero-dep (TECH_STACK.md §1 locked default; NO satori/resvg unless PNG built). *(check: green)*
+- [x] S9-3 RED: `share.service.test.ts › degrade never throws` → zero-state/new player ⇒ minimal fallback card, never error (§4.9). *(check: red)*
+- [x] S9-4 GREEN: fallback path. *(check: green)*
+- [x] S9-5: `src/handlers/share-card.ts` (FR-9.2) — player auth, read-only via `getPlayer`, `Content-Type: image/svg+xml`; render failure ⇒ 200 fallback, never 500 (ARCHITECTURE.md §7); `?format=png` only if rasterizer built. *(check: `curl …/share-card -H 'X-Player-Id: streak-001'` returns valid SVG)*
+- [x] S9-6: Add a "Share" affordance to `StreakDashboard.tsx` opening/embedding the card (FR-9.2). *(check: dashboard renders the share control)*
+- [x] S9-7 GATE: **Slice S9 DoD** — `npm test` green incl. renderer + degrade; live SVG returns; zero-state player still 200; dashboard Share works. Write `SLICE_REPORTS/slice-9.md`.
 
 ---
 
