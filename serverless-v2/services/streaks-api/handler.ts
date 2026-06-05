@@ -3,8 +3,10 @@ import serverless from 'serverless-http';
 
 import healthRoute from './src/routes/health';
 import { authMiddleware } from './src/middleware/auth';
+import { internalAuthMiddleware } from './src/middleware/internalAuth';
 import { checkInHandler } from './src/handlers/check-in';
 import { getStreaksHandler } from './src/handlers/streaks';
+import { handCompletedHandler } from './src/handlers/internal';
 
 export const app = express();
 
@@ -32,6 +34,12 @@ app.get('/api/v1/player/streaks', authMiddleware, getStreaksHandler);
 app.post('/api/v1/player/streaks/check-in', authMiddleware, checkInHandler);
 app.get('/api/v1/streaks', authMiddleware, getStreaksHandler);
 app.post('/api/v1/streaks/check-in', authMiddleware, checkInHandler);
+
+// Internal server-to-server route (FR-6) — guarded by the shared-secret
+// `internalAuthMiddleware` ONLY (Inv 10, FR-6.3). Deliberately OUTSIDE the
+// player-auth group: it never accepts `X-Player-Id`; the target player is in
+// the body. Must never sit behind `authMiddleware`.
+app.post('/internal/streaks/hand-completed', internalAuthMiddleware, handCompletedHandler);
 
 // 404 handler
 app.use((_req: Request, res: Response) => {

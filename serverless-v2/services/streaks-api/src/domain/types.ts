@@ -90,6 +90,22 @@ export interface CheckInResponse {
 }
 
 /**
+ * The response body for `POST /internal/streaks/hand-completed` (§4.6).
+ *
+ * `date` is the UTC calendar day of the hand's `completedAt` (Inv 1), NOT now.
+ * `playStreakUpdated` is `true` only for the first hand of that UTC day, `false`
+ * for same-day repeats. In S2 `milestoneEarned` is always `null` (play-milestone
+ * reward awarding is S3); the field is wired now to lock the wire shape.
+ */
+export interface HandCompletedResponse {
+  playerId: string;
+  date: string;
+  playStreakUpdated: boolean;
+  playStreak: number;
+  milestoneEarned: RewardRecord | null;
+}
+
+/**
  * A milestone reward record (`streaks-rewards` — DATA_MODEL.md §4, wire shape
  * API_CONTRACT.md §5.5). Defined here so `CheckInResponse.milestoneEarned` is
  * typed; reward awarding itself lands in S3.

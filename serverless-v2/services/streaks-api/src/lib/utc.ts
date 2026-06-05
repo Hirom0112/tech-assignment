@@ -50,6 +50,17 @@ export function nowIso(): string {
   return DateTime.utc().toISO() ?? '';
 }
 
+/**
+ * True iff `value` parses as a valid ISO-8601 instant/date (Luxon-validated).
+ * The single place that decides "is this a usable ISO timestamp" so handlers
+ * never hand-roll `new Date()` validation (Inv 1).
+ * @example isIsoInstant('2026-02-20T14:30:00Z') => true
+ * @example isIsoInstant('not-a-date') => false
+ */
+export function isIsoInstant(value: string): boolean {
+  return DateTime.fromISO(value, { zone: 'utc' }).isValid;
+}
+
 function toIsoDate(dt: DateTime): string {
   const value = dt.toISODate();
   if (value === null) {
