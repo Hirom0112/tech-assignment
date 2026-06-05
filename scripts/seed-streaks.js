@@ -6,10 +6,16 @@
  *
  *   node scripts/seed-streaks.js
  *
- * This is TOOLING, not the TS service — a plain Node CJS script. It writes only
- * (no reads, no `Scan`) using idempotent `PutCommand`s (overwrite), so it is safe
- * to re-run; it does NOT use the `attribute_not_exists` conditions that guard the
- * live API. `console.log` is fine here (STND-3 binds `src/`, not `scripts/`).
+ * This is TOOLING, not the TS service — a plain Node CJS script. It is fully
+ * RE-RUNNABLE to a clean deterministic state: each run first WIPES the 10 seed
+ * players' rows across all 4 streaks tables (bounded per-player `Query` +
+ * `BatchWriteCommand` delete — no `Scan`), then writes the fresh dataset with
+ * plain `PutCommand`s. Without the wipe, `streaks-rewards` / `streaks-freeze-
+ * history` (whose keys carry a unique rewardId / date) would ACCUMULATE across
+ * runs and the dashboard would show duplicate milestones (DATA_MODEL §11 needs a
+ * clean, not accumulating, re-seed). It does NOT use the `attribute_not_exists`
+ * conditions that guard the live API. `console.log` is fine here (STND-3 binds
+ * `src/`, not `scripts/`).
  *
  * What it generates, per the 10 players (`streak-001..010`) over 60 days ending
  * today (UTC):
@@ -27,12 +33,31 @@
  *   loggedIn ~ Bernoulli(consistency); played ~ Bernoulli(consistency * 0.6).
  * Streak counters reset on a gap; SOME single-day gaps are protected by a freeze
  * (carry the streak, write the freeze rows) when the player has balance.
+ *
+ * The random draws use a DETERMINISTIC seeded PRNG, so re-runs produce the same
+ * dataset and identical counts (override with SEED_RANDOM=<int> for a different,
+ * still-reproducible dataset).
  */
 
 'use strict';
 
+const path = require('path');
+
+// The repo root has no `node_modules`; the AWS SDK lives in the streaks-api
+// package. Add it to this script's module search path so `node
+// scripts/seed-streaks.js` (and `npm run seed:streaks`) works from anywhere with
+// no NODE_PATH env var.
+module.paths.push(
+  path.join(__dirname, '..', 'serverless-v2', 'services', 'streaks-api', 'node_modules'),
+);
+
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocumentClient, PutCommand } = require('@aws-sdk/lib-dynamodb');
+const {
+  DynamoDBDocumentClient,
+  PutCommand,
+  QueryCommand,
+  BatchWriteCommand,
+} = require('@aws-sdk/lib-dynamodb');
 
 const ENDPOINT = process.env.DYNAMODB_ENDPOINT || 'http://localhost:8000';
 const REGION = process.env.AWS_REGION || 'us-east-1';
@@ -50,6 +75,22 @@ const PLAYERS_TABLE = 'streaks-players';
 const ACTIVITY_TABLE = 'streaks-activity';
 const REWARDS_TABLE = 'streaks-rewards';
 const FREEZE_HISTORY_TABLE = 'streaks-freeze-history';
+
+// Deterministic PRNG (mulberry32) so the generated dataset is REPRODUCIBLE: a
+// re-run produces byte-identical rows and therefore identical counts, which is
+// what makes the wipe-then-write idempotent in a verifiable way. Override the
+// seed with SEED_RANDOM=<int> for a different (but still reproducible) dataset.
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function rand() {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const rand = mulberry32(Number(process.env.SEED_RANDOM) || 0x5734ea7);
 
 const DAYS = 60;
 const PLAY_FACTOR = 0.6; // play is rarer than login (DATA_MODEL §11).
@@ -104,7 +145,7 @@ function yearMonth(date) {
  */
 function makeRewardId(isoInstant) {
   const prefix = String(new Date(isoInstant).getTime()).padStart(15, '0');
-  const suffix = Math.random().toString(36).slice(2, 10).padEnd(8, '0');
+  const suffix = rand().toString(36).slice(2, 10).padEnd(8, '0');
   return `${prefix}-${suffix}`;
 }
 
@@ -154,8 +195,8 @@ function walkPlayer(player, today) {
     const dateStr = isoDate(date);
     const ts = date.toISOString();
 
-    const loggedIn = Math.random() < player.consistency;
-    const played = loggedIn && Math.random() < player.consistency * PLAY_FACTOR;
+    const loggedIn = rand() < player.consistency;
+    const played = loggedIn && rand() < player.consistency * PLAY_FACTOR;
 
     // The two axes are INDEPENDENT (FR-1.3): the login gap is measured from the
     // last LOGIN day, the play gap from the last PLAY day. A day with no login is
@@ -175,7 +216,7 @@ function walkPlayer(player, today) {
     } else if (
       loginGap === 2 &&
       freezesAvailable > 0 &&
-      Math.random() < FREEZE_PROTECT_CHANCE
+      rand() < FREEZE_PROTECT_CHANCE
     ) {
       // A single missed day, protected by a freeze → carry the streak across it.
       freezesAvailable -= 1;
@@ -288,9 +329,71 @@ async function put(table, item) {
   await docClient.send(new PutCommand({ TableName: table, Item: item }));
 }
 
+// The 3 keyed tables that ACCUMULATE rows per player (their SK is a unique
+// rewardId / date), plus how to extract the primary key from a queried item.
+// `streaks-players` is PK-only and is simply overwritten by the Put, so it needs
+// no wipe — but we delete-then-write it too for a fully clean state.
+const KEYED_TABLES = [
+  { table: ACTIVITY_TABLE, key: (it) => ({ playerId: it.playerId, date: it.date }) },
+  { table: REWARDS_TABLE, key: (it) => ({ playerId: it.playerId, rewardId: it.rewardId }) },
+  { table: FREEZE_HISTORY_TABLE, key: (it) => ({ playerId: it.playerId, date: it.date }) },
+];
+
+/** Chunk an array into sub-arrays of at most `size` (BatchWrite caps at 25). */
+function chunk(arr, size) {
+  const out = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
+/**
+ * Delete every row a player owns in `table`, bounded and Scan-free: a `Query` on
+ * the PK collects the items, then `BatchWriteCommand` deletes them in chunks of
+ * 25. Returns the number of rows removed. (Inv 8 permits a Scan in seed tooling,
+ * but the per-player Query+BatchWrite is cleaner and bounded.)
+ */
+async function wipePlayerTable(playerId, table, keyOf) {
+  const found = await docClient.send(
+    new QueryCommand({
+      TableName: table,
+      KeyConditionExpression: 'playerId = :p',
+      ExpressionAttributeValues: { ':p': playerId },
+    }),
+  );
+  const items = found.Items || [];
+  for (const batch of chunk(items, 25)) {
+    await docClient.send(
+      new BatchWriteCommand({
+        RequestItems: {
+          [table]: batch.map((it) => ({ DeleteRequest: { Key: keyOf(it) } })),
+        },
+      }),
+    );
+  }
+  return items.length;
+}
+
+/** Wipe all 4 tables for one seed player so the subsequent write is clean. */
+async function wipePlayer(playerId) {
+  let removed = 0;
+  for (const { table, key } of KEYED_TABLES) {
+    removed += await wipePlayerTable(playerId, table, key);
+  }
+  // streaks-players is PK-only; the upcoming Put overwrites it, so no delete needed.
+  return removed;
+}
+
 async function seed() {
   console.log(`Seeding streaks data to ${ENDPOINT} ...`);
   const today = new Date(); // walked in UTC via getUTCDate.
+
+  // Wipe-then-write: clear the 10 seed players' accumulating rows first so a
+  // re-run lands on a clean, deterministic dataset (no duplicate rewards).
+  let wiped = 0;
+  for (const p of PLAYERS) {
+    wiped += await wipePlayer(p.id);
+  }
+  console.log(`Wiped ${wiped} pre-existing rows for the 10 seed players.`);
 
   let players = 0;
   let activity = 0;
