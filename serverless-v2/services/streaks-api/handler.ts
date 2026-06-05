@@ -14,6 +14,7 @@ import { getFreezesHandler } from './src/handlers/freezes';
 import { getCalendarHandler } from './src/handlers/calendar';
 import { handCompletedHandler } from './src/handlers/internal';
 import { grantFreezesHandler, getPlayerHistoryHandler } from './src/handlers/admin';
+import { shareCardHandler } from './src/handlers/share-card';
 
 export const app = express();
 
@@ -49,11 +50,16 @@ app.post('/api/v1/player/streaks/check-in', authMiddleware, asyncHandler(checkIn
 app.get('/api/v1/player/streaks/rewards', authMiddleware, asyncHandler(getRewardsHandler));
 app.get('/api/v1/player/streaks/freezes', authMiddleware, asyncHandler(getFreezesHandler));
 app.get('/api/v1/player/streaks/calendar', authMiddleware, asyncHandler(getCalendarHandler));
+// Share-card (FR-9, §4.9) — player auth; returns image/svg+xml (not JSON). The
+// ONE non-JSON success body in the API; degrades to a 200 fallback card, never a
+// 500 (ARCHITECTURE §7). Bonus phase S9.
+app.get('/api/v1/player/streaks/share-card', authMiddleware, asyncHandler(shareCardHandler));
 app.get('/api/v1/streaks', authMiddleware, asyncHandler(getStreaksHandler));
 app.post('/api/v1/streaks/check-in', authMiddleware, asyncHandler(checkInHandler));
 app.get('/api/v1/streaks/rewards', authMiddleware, asyncHandler(getRewardsHandler));
 app.get('/api/v1/streaks/freezes', authMiddleware, asyncHandler(getFreezesHandler));
 app.get('/api/v1/streaks/calendar', authMiddleware, asyncHandler(getCalendarHandler));
+app.get('/api/v1/streaks/share-card', authMiddleware, asyncHandler(shareCardHandler));
 
 // Internal server-to-server route (FR-6) — guarded by the shared-secret
 // `internalAuthMiddleware` ONLY (Inv 10, FR-6.3). Deliberately OUTSIDE the
