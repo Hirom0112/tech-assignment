@@ -1,7 +1,12 @@
-import { Box, Paper, Tooltip, Typography } from '@mui/material';
+import { Box, Paper, Tooltip, Typography, useTheme } from '@mui/material';
 import type { Activity, ActivityDay } from '../types/streaks.types';
 
-/** Heat-map colors (FR-4.3 / §5.1): gray / light-green / dark-green / blue / red. */
+/**
+ * Default (dark-brand) heat-map colors (FR-4.3 / §5.1):
+ * gray / light-green / dark-green / blue / red.
+ * Each theme overrides these via `theme.palette.heatmap` so the 5 semantic
+ * states stay distinguishable under every skin (BL-2).
+ */
 export const ACTIVITY_COLORS: Record<Activity, string> = {
   none: '#21262D',
   login_only: '#9BE9A8',
@@ -41,10 +46,13 @@ interface CalendarHeatMapProps {
  * each colored by its (normalized) activity, each wrapped in a tooltip.
  */
 export default function CalendarHeatMap({ month, days }: CalendarHeatMapProps) {
+  const theme = useTheme();
+  // Theme-provided heat-map palette (falls back to the brand defaults).
+  const colors = theme.palette.heatmap ?? ACTIVITY_COLORS;
   return (
     <Paper
       elevation={0}
-      sx={{ p: 3, border: '1px solid', borderColor: 'rgba(255,255,255,0.08)' }}
+      sx={{ p: 3, border: '1px solid', borderColor: 'divider' }}
     >
       <Typography variant="h6" gutterBottom>
         Activity — {month}
@@ -67,7 +75,7 @@ export default function CalendarHeatMap({ month, days }: CalendarHeatMapProps) {
                 sx={{
                   aspectRatio: '1 / 1',
                   borderRadius: 1,
-                  backgroundColor: ACTIVITY_COLORS[activity],
+                  backgroundColor: colors[activity],
                   cursor: 'default',
                   transition: 'transform 120ms',
                   '&:hover': { transform: 'scale(1.12)' },
@@ -85,7 +93,7 @@ export default function CalendarHeatMap({ month, days }: CalendarHeatMapProps) {
                 width: 12,
                 height: 12,
                 borderRadius: 0.5,
-                backgroundColor: ACTIVITY_COLORS[a],
+                backgroundColor: colors[a],
               }}
             />
             <Typography variant="caption" color="text.secondary">
