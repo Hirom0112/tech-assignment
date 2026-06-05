@@ -9,6 +9,8 @@ provider:
   region: us-east-1
   environment:
     STAGE: local
+    STREAKS_PLAYERS_TABLE: streaks-players
+    STREAKS_ACTIVITY_TABLE: streaks-activity
     STREAKS_REWARDS_TABLE: streaks-rewards
     STREAKS_FREEZE_HISTORY_TABLE: streaks-freeze-history
     INTERNAL_API_SECRET: dev-internal-secret
