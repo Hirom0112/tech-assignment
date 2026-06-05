@@ -4,25 +4,25 @@ import { Box, Button, IconButton, Tooltip } from '@mui/material';
 import VolumeUpIcon from '@mui/icons-material/VolumeUp';
 import VolumeOffIcon from '@mui/icons-material/VolumeOff';
 import LoginScreen from '../LoginScreen';
-import IdleScene from './IdleScene';
+import HorseGallop from './HorseGallop';
 import LogoReveal from './LogoReveal';
-import HorseRunOff from './HorseRunOff';
 import { useSequencer, TIMELINE } from './useSequencer';
 import { useIntroSound } from './useIntroSound';
 
 /**
  * The interactive staged app-open (Route A, desktop-first).
  *
- *   Beat 1  IdleScene   — static standing-horse still: scene "jumps" + pulses
- *   Beat 2  LogoReveal  — wordmark + HJ chip spin-in, layered over the idle
+ *   Beat 1  HorseGallop — the horse gallops, LOOPING + full-bleed, from load
+ *   Beat 2  LogoReveal  — wordmark + HJ chip spin-in, layered over the gallop
  *   Beat 3  await       — pulsing "Tap to ride in" prompt; WAITS for input
- *   Beat 4  HorseRunOff — on tap the horse gallops + recedes into the distance
- *           then cross-dissolve into the EXISTING art-deco LoginScreen and
- *           navigate('/login', { replace }) so the route finalizes invisibly.
+ *   Beat 4  exit        — on tap the SAME galloping video recedes into the
+ *           distance (one <video>, no second element) then cross-dissolve into
+ *           the EXISTING art-deco LoginScreen and navigate('/login', replace).
  *
  * LoginScreen is rendered UNDER the cinematic the whole time and revealed by
  * fading the intro layers out (option A). Skip (button + Esc) jumps straight to
- * login (no run-off). prefers-reduced-motion renders the static end-state.
+ * login (no run-off). prefers-reduced-motion shows the static poster (no
+ * autoplay video) + the logo end-state, then tap → login.
  */
 export default function OpenSequence() {
   const navigate = useNavigate();
@@ -90,15 +90,11 @@ export default function OpenSequence() {
           pointerEvents: introFadingOut ? 'none' : 'auto',
         }}
       >
-        {/* Beat 1 — idle still (stays beneath the logo the whole cinematic). */}
-        {!seq.reducedMotion && (
-          <IdleScene active={seq.phase !== 'done'} motionless={false} />
-        )}
+        {/* Beats 1 & 4 — ONE horse-video layer: loops during idle/logo/await,
+            then takes the recede transform on exit (no second <video>). */}
+        <HorseGallop exiting={seq.exiting} motionless={seq.reducedMotion} />
 
-        {/* Beat 4 — horse run-off recede (only while exiting). */}
-        {!seq.reducedMotion && seq.exiting && <HorseRunOff active={seq.exiting} />}
-
-        {/* Beat 2/3 — logo + chip + tap prompt, over the idle. */}
+        {/* Beat 2/3 — logo + chip + tap prompt, over the galloping horse. */}
         {(seq.logoActive || seq.reducedMotion) && (
           <LogoReveal
             active={seq.logoActive}

@@ -12,11 +12,13 @@ import { theme } from '../theme';
 /**
  * BL-1 (interactive redesign): the staged OpenSequence.
  *
- *   idle → logo → await(tap) → exit(run-off) → login
+ *   idle (looping gallop) → logo → await(tap) → exit(recede) → login
  *
- * The advance to login now happens on TAP, not on video end. jsdom can't play
- * <video>/<audio>, so we drive the auto-progression via fake timers and the
- * tap via click/keyboard.
+ * Beat 1 now plays ONE looping muted gallop <video> from load; the logo + tap
+ * prompt sit over it; on tap the SAME video recedes. The advance to login
+ * happens on TAP (or the safety timer), not on video end. jsdom can't play
+ * <video>/<audio>, so we drive progression via fake timers and tap via
+ * click/keyboard. Reduced-motion shows the static poster (no autoplay video).
  */
 function renderSequence() {
   const store = makeTestStore();
@@ -80,11 +82,34 @@ describe('OpenSequence (interactive BL-1)', () => {
     ).toBeInTheDocument();
   });
 
-  it('starts on the static idle scene (no run-off video yet)', () => {
+  it('starts with ONE looping gallop video playing from load', () => {
     renderSequence();
-    expect(screen.getByTestId('intro-idle')).toBeInTheDocument();
-    // No gallop <video> mounted at the open — the gallop is the EXIT.
-    expect(document.querySelector('video')).toBeNull();
+    expect(screen.getByTestId('intro-horse')).toBeInTheDocument();
+    // Exactly one <video>, autoplay + muted + loop, present from the open.
+    const videos = document.querySelectorAll('video');
+    expect(videos).toHaveLength(1);
+    const v = videos[0] as HTMLVideoElement;
+    expect(v.autoplay).toBe(true);
+    expect(v.muted).toBe(true);
+    expect(v.loop).toBe(true);
+  });
+
+  it('keeps exactly one video element through to the run-off exit', () => {
+    vi.useFakeTimers();
+    try {
+      renderSequence();
+      advanceToAwait();
+      // One video before tap...
+      expect(document.querySelectorAll('video')).toHaveLength(1);
+      const prompt = screen.getByRole('button', { name: /Tap to ride in/i });
+      act(() => {
+        prompt.click();
+      });
+      // ...and still exactly one during the recede (no second element mounted).
+      expect(document.querySelectorAll('video')).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('progresses idle → logo, then reveals the tap prompt and waits', () => {
