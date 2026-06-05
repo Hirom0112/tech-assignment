@@ -62,20 +62,20 @@
 
 ## Slice S2 — Play streak + internal event  *(FR-1.2/1.3, FR-6)*
 
-- [ ] S2-1 RED: `__tests__/services/play.service.test.ts › first hand of day` → advances `playStreak`, activity `played:true, playStreakAtDay:n`, day = `utcDay(completedAt)` not now (spec §Edge 1, ARCHITECTURE.md §5b). *(check: red)*
-- [ ] S2-2 GREEN: `src/services/play.service.ts` advance branch. *(check: green)*
-- [ ] S2-3 RED: `play.service.test.ts › multiple hands same day` → 2nd hand same UTC day ⇒ no-op `playStreakUpdated:false` (FR-6.2, spec §Edge 2). *(check: red)*
-- [ ] S2-4 GREEN: conditional upsert `attribute_not_exists(#date) OR #played <> :true` (ARCHITECTURE.md §5b step 2). *(check: green)*
-- [ ] S2-5 RED: `play.service.test.ts › independence` → hand-completed advances `playStreak` and does NOT touch `loginStreak`; check-in does NOT touch `playStreak` (FR-1.3). *(check: red)*
-- [ ] S2-6 GREEN: keep the two axes independent on the player record. *(check: green)*
-- [ ] S2-7 RED: `play.service.test.ts › missed day reset` → play gap, no freeze ⇒ `playStreak=1`, play `streakBroken`. *(check: red)*
-- [ ] S2-8 GREEN: play reset branch. *(check: green)*
-- [ ] S2-9 RED: `dynamo.repository.test.ts › play writes` → `mergePlayed` (pattern E) and `advancePlayStreak` (`lastPlayDate = :yesterday`). *(check: red)*
-- [ ] S2-10 GREEN: add `mergePlayed` + `advancePlayStreak` to `dynamo.repository.ts`. *(check: green)*
-- [ ] S2-11: `src/handlers/internal.ts` (FR-6.1) — `internalAuth` (403 on miss), validate `{playerId, tableId, handId, completedAt}` (400 on missing/invalid/non-ISO), map to §4.6 (`playStreakUpdated, date, playStreak`); mount `POST /internal/streaks/hand-completed` with `internalAuth` only, **never** `authMiddleware` (FR-6.3, CLAUDE.md Inv 10). *(check: typecheck clean)*
-- [ ] S2-12 RED: `__tests__/integration/hand-completed.int.test.ts` → post hand ⇒ `playStreakUpdated:true playStreak:1`; repeat same `completedAt` ⇒ `false`; missing/`X-Player-Id`-only secret ⇒ `403`; `GET /player/streaks` shows `playStreak` up, `loginStreak` unchanged. *(check: red then green)*
-- [ ] S2-13 GREEN: pass the integration test. *(check: `npm test` green)*
-- [ ] S2-14 GATE: **Slice S2 DoD** — `npm test` green incl. independence + multiple-hands; live double-post shows `true` then `false`; missing secret → 403. Write `SLICE_REPORTS/slice-2.md`.
+- [x] S2-1 RED: `__tests__/services/play.service.test.ts › first hand of day` → advances `playStreak`, activity `played:true, playStreakAtDay:n`, day = `utcDay(completedAt)` not now (spec §Edge 1, ARCHITECTURE.md §5b). *(check: red)*
+- [x] S2-2 GREEN: `src/services/play.service.ts` advance branch. *(check: green)*
+- [x] S2-3 RED: `play.service.test.ts › multiple hands same day` → 2nd hand same UTC day ⇒ no-op `playStreakUpdated:false` (FR-6.2, spec §Edge 2). *(check: red)*
+- [x] S2-4 GREEN: conditional upsert `attribute_not_exists(#date) OR #played <> :true` (ARCHITECTURE.md §5b step 2). *(check: green)*
+- [x] S2-5 RED: `play.service.test.ts › independence` → hand-completed advances `playStreak` and does NOT touch `loginStreak`; check-in does NOT touch `playStreak` (FR-1.3). *(check: red)*
+- [x] S2-6 GREEN: keep the two axes independent on the player record. *(check: green)*
+- [x] S2-7 RED: `play.service.test.ts › missed day reset` → play gap, no freeze ⇒ `playStreak=1`, play `streakBroken`. *(check: red)*
+- [x] S2-8 GREEN: play reset branch. *(check: green)*
+- [x] S2-9 RED: `dynamo.repository.test.ts › play writes` → `mergePlayed` (pattern E) and `advancePlayStreak` (`lastPlayDate = :yesterday`). *(check: red)*
+- [x] S2-10 GREEN: add `mergePlayed` + `advancePlayStreak` to `dynamo.repository.ts`. *(check: green)*
+- [x] S2-11: `src/handlers/internal.ts` (FR-6.1) — `internalAuth` (403 on miss), validate `{playerId, tableId, handId, completedAt}` (400 on missing/invalid/non-ISO), map to §4.6 (`playStreakUpdated, date, playStreak`); mount `POST /internal/streaks/hand-completed` with `internalAuth` only, **never** `authMiddleware` (FR-6.3, CLAUDE.md Inv 10). *(check: typecheck clean)*
+- [x] S2-12 RED: `__tests__/integration/hand-completed.int.test.ts` → post hand ⇒ `playStreakUpdated:true playStreak:1`; repeat same `completedAt` ⇒ `false`; missing/`X-Player-Id`-only secret ⇒ `403`; `GET /player/streaks` shows `playStreak` up, `loginStreak` unchanged. *(check: red then green)*
+- [x] S2-13 GREEN: pass the integration test. *(check: `npm test` green)*
+- [x] S2-14 GATE: **Slice S2 DoD** — `npm test` green incl. independence + multiple-hands; live double-post shows `true` then `false`; missing secret → 403. Write `SLICE_REPORTS/slice-2.md`.
 
 ---
 

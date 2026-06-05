@@ -48,6 +48,14 @@ blockers go in `BLOCKED.md` instead, not here.
 - **Precedence.** Most-boring, invariant-preserving option (no app-code change, no new deps). Surfaced only at S1 because S0's health route imported nothing from `shared/`; it is the TECH_STACK §3 shared-interop risk made concrete. No wire/storage change.
 - **Action.** None pending — fix is in `serverless.offline.yml`/`serverless.yml`. If more handlers import other shared native deps (`ioredis`/`mysql2`/`sequelize`), add them to `exclude` too.
 
+## A-6 — `mergePlayed` is a conditional create-or-merge, not an unconditional SET
+
+- **Conflict.** DATA_MODEL.md §7 **pattern E** prose describes the played-merge as `SET played = :true` "no condition needed"; TODO S2-4/S2-10 require the conditional upsert `attribute_not_exists(#date) OR #played <> :true`.
+- **Resolution.** Implement `mergePlayed` as the **conditional** create-or-merge (`attribute_not_exists(#date) OR #played <> :true`, `#date`/`#played` aliases, `SET` only, `if_not_exists(...)` preserving the login fields). This is what makes `playStreakUpdated` correctly report first-of-day and is the once-per-UTC-day idempotency source of truth (Inv 2).
+- **Precedence.** DATA_MODEL §8's narrative already states "`attribute_not_exists(#date)`… the same primitive guards hand-completed", so the conditional form is consistent with §8; only the §7 pattern-E table row prose is loose. The binding TODO + Inv 2 win.
+- **Action.** Reconcile DATA_MODEL.md §7 pattern E wording to the conditional form during the S7 docs pass.
+- **Sub-note (test-infra quirk, not product):** supertest `.send(object)` hits a hoisted `mime@1.6.0` lacking `getType`; integration tests must `.set('Content-Type','application/json')` before `.send()` (done). Consider deduping `mime` in the lockfile later.
+
 ---
 
 ## Carried (already-documented in the docs, not conflicts — listed so they aren't re-litigated)
