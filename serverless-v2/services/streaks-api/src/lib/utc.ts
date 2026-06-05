@@ -41,6 +41,15 @@ export function yearMonth(isoDate: string): string {
   return DateTime.fromISO(isoDate, { zone: 'utc' }).toFormat('yyyy-MM');
 }
 
+/**
+ * The current instant as an ISO-8601 UTC timestamp. The single source of
+ * "now" so no other module calls `new Date()` (Inv 1).
+ * @example nowIso() => '2026-06-05T09:14:02.117Z'
+ */
+export function nowIso(): string {
+  return DateTime.utc().toISO() ?? '';
+}
+
 function toIsoDate(dt: DateTime): string {
   const value = dt.toISODate();
   if (value === null) {
