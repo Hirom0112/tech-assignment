@@ -240,30 +240,37 @@ The backend suite exits clean (no `--forceExit`).
 | **S6** | React dashboard (counters, heat map, rewards, freezes) | ✅ Shipped |
 | **S7** | Hardening + docs (error contract, this README, API polish) | ✅ Shipped |
 
-The **Must + Should core (S0–S7) ships complete and green** (backend 141 tests,
-frontend 18). The Could-Have bonus phase and a UX backlog are **deliberately deferred** —
-per CLAUDE.md §8 and the over-scope rule (PROJECT.md §7), a complete core beats a
-half-finished core chasing bonuses.
+The **Must + Should core (S0–S7) shipped first and complete** (the over-scope rule,
+PROJECT.md §7: a complete core beats a half-finished core chasing bonuses). With the core
+green, the **Could-Have bonus phase and the UX backlog were then built too** — all of the
+below now ship:
 
-| Deferred | What it is | What we'd do next |
+| Bonus | Scope | Status |
 |---|---|---|
-| **S8** | FR-7 admin push-payload audit, **FR-8 admin view-history endpoint**, FR-10 scheduled-freeze cron | The payload is already generated/stored on rewards; S8 adds the composite read endpoint (§4.8) and an EventBridge cron that calls the **same** `freeze.service` consume the lazy path uses (idempotent via the per-day freeze-history conditional write — ADR-2). |
-| **S9** | **FR-9 share-card** image endpoint + dashboard "Share" affordance | Render a branded streak card via server-side **SVG templating** (zero heavy deps); PNG via satori+resvg is the optional upgrade. Degrades to a minimal card, never 500s (ADR-8). |
-| **S10** | NFR-10 GitHub Actions CI | Mirror the local pre-push hook in CI: lint + `tsc --noEmit` + both test suites on push/PR. Low-risk, additive. |
-| **BL-1** | Cinematic intro → login screen → dashboard flow | Play the branded intro video, transition to an art-deco "High Roller's Lounge" login (stub-auth sets `X-Player-Id`), then land on the dashboard. |
-| **BL-2** | 3 selectable dashboard themes (runtime tab) | `theme.ts` already ships a named `themes` map (only `hijack-dark` populated) as the clean seam; add two more MUI palettes (warm art-deco; high-contrast neon) — same components/data. |
-| **BL-3** | Mockup-driven visual polish | Use the FR-4 dashboard mockup as the visual target; reconcile its palette into BL-2 Option 2. |
+| **S8** | FR-7 push-payload audit, **FR-8 admin view-history** (§4.8), **FR-10 scheduled-freeze cron** | ✅ Shipped — the cron calls the **same** `freeze.service` consume the lazy path uses (idempotent via the per-day freeze-history conditional write, ADR-2); the one sanctioned `Scan`. |
+| **S9** | **FR-9 share-card** SVG endpoint + dashboard "Share" affordance | ✅ Shipped — branded streak card via zero-dep server-side SVG; degrades to a minimal card, never 500s (ADR-8). `?format=png` → `400` (no rasterizer built). |
+| **S10** | NFR-10 GitHub Actions CI | ✅ Shipped — `streaks-ci.yml` mirrors the pre-push hook (`tsc --noEmit` + both suites on push/PR, Node 22, DynamoDB Local service). |
+| **BL-1** | Cinematic intro → login screen → dashboard flow | ✅ Shipped — branded intro video → art-deco "High Roller's Lounge" login (stub-auth sets `X-Player-Id`) → dashboard, with logout. |
+| **BL-2** | 3 selectable dashboard themes (runtime switch) | ✅ Shipped — `hijack-dark` / `hijack-lounge` (warm art-deco) / `hijack-neon`, switched live via a top-corner `1·2·3` control, persisted. |
+| **BL-3** | Mockup-driven visual polish | ✅ Shipped — dashboard matches the FR-4 mockup layout; the mockup's warm palette is BL-2's lounge theme. |
 
-> The §4.8 admin history and §4.9 share-card routes are **documented in API_CONTRACT.md
-> but not yet mounted** (S8/S9) — hitting them returns `404 NotFound`, consistent with
-> their deferred status.
+**Test status (streaks feature):** backend **161** + frontend **29** = **190 tests**, `tsc`
+clean, every slice gate re-verified live. Each package is `npm install && npm test` (see §5);
+the sibling skeleton services (`holdem-processor`, `rewards-api`, `cash-game-broadcast`) are
+**out of this feature's scope and untouched** — they pass once their own and the
+`serverless-v2/shared` `node_modules` are installed.
+
+> **What we'd do next** (genuinely remaining): PI-1 — `scripts/init-dynamodb.sh` creates 2
+> of the 4 streaks tables (the running stack uses docker-compose's full init, so this only
+> affects a standalone run of that helper); and a docs-align sweep of the `RESEARCH.md`
+> citations (that file lives in the parent dir, outside this repo).
 
 ---
 
 ## 7. Trade-offs & decisions
 
 Architectural decisions are recorded as **ADRs in [`ARCHITECTURE.md §11`](ARCHITECTURE.md)**
-(9 ADRs) and every doc-conflict resolution in [`ASSUMPTIONS.md`](ASSUMPTIONS.md)
+(11 ADRs) and every doc-conflict resolution in [`ASSUMPTIONS.md`](ASSUMPTIONS.md)
 (A-1…A-7, all reconciled in S7). Notable ones:
 
 - **Zero-dep `rewardId`** (A-7 / ADR-10) — instead of installing `ulid`, the reward id is
