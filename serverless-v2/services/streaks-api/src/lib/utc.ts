@@ -24,6 +24,16 @@ export function yesterday(isoDate: string): string {
 }
 
 /**
+ * The UTC date `n` whole days before the given ISO date (single-source day
+ * math, Inv 1). `daysAgo(d, 1)` equals `yesterday(d)`; `daysAgo(d, 0)` is `d`
+ * itself. Used to bound the admin view-history recent-activity window (§4.8).
+ * @example daysAgo('2026-03-01', 60) => '2025-12-31'
+ */
+export function daysAgo(isoDate: string, n: number): string {
+  return toIsoDate(DateTime.fromISO(isoDate, { zone: 'utc' }).minus({ days: n }));
+}
+
+/**
  * Integer count of whole UTC days from `a` to `b` (b − a).
  * @example daysBetween('2026-02-18', '2026-02-20') => 2
  */

@@ -17,11 +17,24 @@
  */
 import type { Request, Response } from 'express';
 
-import { getPlayer, grantFreezeAdmin } from '../repositories/dynamo.repository';
-import { nowIso } from '../lib/utc';
+import {
+  getPlayer,
+  grantFreezeAdmin,
+  queryActivityRange,
+  queryFreezeHistory,
+  queryRewards,
+} from '../repositories/dynamo.repository';
+import { toAdminHistoryResponse } from './presenter';
+import { daysAgo, nowIso, utcDay } from '../lib/utc';
 import { logger } from '../../shared/config/logger';
 import { BadRequestError, ConflictError, NotFoundError } from '../middleware/error';
 import type { AdminGrantResponse } from '../domain/types';
+
+/**
+ * The recent activity window the admin view-history surfaces (API_CONTRACT.md
+ * §4.8 — the last 60 days, matching the seed horizon, DATA_MODEL.md §11).
+ */
+const HISTORY_WINDOW_DAYS = 60;
 
 /** The validated admin-grant body. */
 interface GrantBody {
@@ -77,6 +90,57 @@ export async function grantFreezesHandler(req: Request, res: Response): Promise<
     // error middleware logs the real error without leaking it on the wire.
     throw err;
   }
+}
+
+/**
+ * GET /api/v1/admin/streaks/players/:playerId/history (FR-8, API_CONTRACT.md
+ * §4.8) — the composite operator/support view of one player's full streak
+ * picture: current aggregate (§4.1), recent per-day activity (§4.3), earned
+ * rewards (§4.4), and freeze balance + history (§4.5), stitched into one call.
+ *
+ * Auth (Inv 10): mounted with `internalAuthMiddleware` (X-Internal-Secret) ONLY
+ * — NEVER player auth. A missing/invalid secret is a 403 from the middleware
+ * BEFORE this handler (and any player lookup) runs (§4.8 / §3).
+ *
+ * THIN handler (Inv 6): resolves the path param, computes the 60-day window edge
+ * ONCE (Inv 1), confirms the player exists (else 404), loads the four parts via
+ * the EXISTING repository Query helpers — `getPlayer`, `queryActivityRange`
+ * (a single bounded `Query`, never a `Scan` — Inv 8), `queryRewards`,
+ * `queryFreezeHistory` — and composes the §4.8 wire via the presenter. No new
+ * sub-shapes, no `docClient`, no Scan.
+ */
+export async function getPlayerHistoryHandler(req: Request, res: Response): Promise<void> {
+  const playerId = req.params.playerId;
+  const correlationId = req.correlationId;
+
+  // Unknown player → 404 (the secret was already validated by the middleware).
+  const player = await getPlayer(playerId);
+  if (player === null) {
+    logger.warn('admin history rejected: unknown playerId', { playerId, correlationId });
+    throw new NotFoundError('Unknown playerId');
+  }
+
+  // Recent-activity window edge computed once (Inv 1): [today−60d .. today].
+  const today = utcDay(nowIso());
+  const windowStart = daysAgo(today, HISTORY_WINDOW_DAYS);
+
+  // The four reads in parallel — each an existing bounded Get/Query (Inv 8). A
+  // raw DynamoDB failure rejects → asyncHandler → 500 (A-3).
+  const [activity, rewards, freezeHistory] = await Promise.all([
+    queryActivityRange(playerId, windowStart, today),
+    queryRewards(playerId),
+    queryFreezeHistory(playerId),
+  ]);
+
+  logger.info('admin viewed player history', {
+    playerId,
+    correlationId,
+    activityRows: activity.length,
+    rewardCount: rewards.length,
+    freezeCount: freezeHistory.length,
+  });
+
+  res.status(200).json(toAdminHistoryResponse(player, activity, rewards, freezeHistory));
 }
 
 /**

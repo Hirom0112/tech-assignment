@@ -819,6 +819,32 @@ export async function queryMonth(
 }
 
 /**
+ * Fetch a player's activity rows over an inclusive UTC date RANGE
+ * (`startDate..endDate`, both `YYYY-MM-DD`) for the admin view-history window
+ * (API_CONTRACT.md §4.8, FR-8 — the recent 60-day window). A SINGLE `Query`
+ * keyed on the PK with `#date BETWEEN :start AND :end` on the SK — never a `Scan`
+ * (Inv 8, NFR-8): the admin path stays Scan-free exactly like the player paths.
+ * `date` is a DynamoDB reserved word, so the SK is aliased as `#date`. Rows come
+ * back ascending by `date` (the default forward SK order); an empty range → `[]`.
+ * The calendar service densifies these into the one-entry-per-day array.
+ */
+export async function queryActivityRange(
+  playerId: string,
+  startDate: string,
+  endDate: string,
+): Promise<ActivityDay[]> {
+  const result = await docClient.send(
+    new QueryCommand({
+      TableName: ACTIVITY_TABLE,
+      KeyConditionExpression: 'playerId = :p AND #date BETWEEN :start AND :end',
+      ExpressionAttributeNames: { '#date': 'date' },
+      ExpressionAttributeValues: { ':p': playerId, ':start': startDate, ':end': endDate },
+    }),
+  );
+  return (result.Items as ActivityDay[] | undefined) ?? [];
+}
+
+/**
  * List a player's earned rewards, newest-first (DATA_MODEL.md §7 pattern H,
  * FR-5.4). A single `Query` on the PK with `ScanIndexForward=false` returns the
  * sortable time-ordered `rewardId`s newest-first directly — a `Scan` is never

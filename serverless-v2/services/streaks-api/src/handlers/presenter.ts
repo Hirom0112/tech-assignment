@@ -4,7 +4,16 @@
  * the handlers so the shape lives in exactly one place.
  */
 import { nextLoginMilestone, nextPlayMilestone } from '../services/streak.service';
-import type { PlayerStreak, RewardRecord, StreaksResponse } from '../domain/types';
+import { deriveActivity, type CalendarDay } from '../services/calendar.service';
+import type {
+  ActivityDay,
+  AdminHistoryResponse,
+  FreezeRecord,
+  FreezesResponse,
+  PlayerStreak,
+  RewardRecord,
+  StreaksResponse,
+} from '../domain/types';
 
 /** Map a stored player record to the §4.1 nine-field streak view. */
 export function toStreaksResponse(player: PlayerStreak): StreaksResponse {
@@ -66,5 +75,64 @@ export function zeroStreaksResponse(): StreaksResponse {
     nextPlayMilestone: nextPlayMilestone(0),
     lastLoginDate: null,
     lastPlayDate: null,
+  };
+}
+
+/**
+ * Project a stored activity row to the §4.3 calendar-day wire shape
+ * (`{date, activity, loginStreak, playStreak}`), collapsing the booleans via the
+ * SAME `deriveActivity` priority the calendar uses (DATA_MODEL §3). The admin
+ * history surfaces the REAL rows over its window (not a densified month), so this
+ * maps one stored row → one wire day.
+ */
+function toActivityWire(row: ActivityDay): CalendarDay {
+  return {
+    date: row.date,
+    activity: deriveActivity(row),
+    loginStreak: row.loginStreakAtDay,
+    playStreak: row.playStreakAtDay,
+  };
+}
+
+/**
+ * Project the stored freeze rows to the §4.5 `{date, source}` wire (drops the
+ * internal `createdAt`/PK) — the same shape `GET …/freezes` exposes.
+ */
+function toFreezesWire(
+  player: PlayerStreak,
+  history: FreezeRecord[],
+): FreezesResponse {
+  return {
+    freezesAvailable: player.freezesAvailable,
+    freezesUsedThisMonth: player.freezesUsedThisMonth,
+    lastFreezeGrantDate: player.lastFreezeGrantDate,
+    history: history.map((row) => ({ date: row.date, source: row.source })),
+  };
+}
+
+/**
+ * Assemble the §4.8 admin view-history composite from the loaded parts (FR-8).
+ * Pure mapping — it REUSES the existing per-endpoint presenters so it stays in
+ * lock-step with §4.1/§4.3/§4.4/§4.5 and introduces no new wire fields. The
+ * handler owns the repository reads; this owns the single composite shape.
+ *
+ *   · `player`  → `toStreaksResponse` (the §4.1 nine-field object);
+ *   · `activity`→ the recent rows mapped via `toActivityWire`, ascending by date
+ *     (the repository Query already returns them ascending);
+ *   · `rewards` → `toRewardWire` over the newest-first reward rows (incl. the
+ *     FR-7 `notification`);
+ *   · `freezes` → the §4.5 balance + `{date, source}` history.
+ */
+export function toAdminHistoryResponse(
+  player: PlayerStreak,
+  activity: ActivityDay[],
+  rewards: RewardRecord[],
+  freezeHistory: FreezeRecord[],
+): AdminHistoryResponse {
+  return {
+    player: toStreaksResponse(player),
+    activity: activity.map(toActivityWire),
+    rewards: rewards.map(toRewardWire),
+    freezes: toFreezesWire(player, freezeHistory),
   };
 }

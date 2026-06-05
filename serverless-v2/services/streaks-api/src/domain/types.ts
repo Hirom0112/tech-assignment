@@ -160,6 +160,22 @@ export interface AdminGrantResponse {
 }
 
 /**
+ * The §4.8 `GET /api/v1/admin/streaks/players/{playerId}/history` composite —
+ * a read-only superset of the player endpoints, stitched into one admin call
+ * (FR-8). It introduces NO new sub-shapes: `player` is the §4.1 streaks object,
+ * `activity` reuses the §4.3 calendar-day shape, `rewards` reuses the §4.4
+ * reward wire, and `freezes` reuses the §4.5 freezes response. A change to any
+ * sub-shape flows through here automatically (API_CONTRACT.md §4.8 "No new
+ * fields"). `activity` covers the recent 60-day window, ascending by date.
+ */
+export interface AdminHistoryResponse {
+  player: StreaksResponse;
+  activity: Array<{ date: string; activity: string; loginStreak: number; playStreak: number }>;
+  rewards: RewardRecord[];
+  freezes: FreezesResponse;
+}
+
+/**
  * Push-notification content payload (FR-7), stored as the `notification` Map on
  * a reward item (DATA_MODEL.md §5). Content only — no delivery.
  */

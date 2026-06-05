@@ -13,7 +13,7 @@ import { getRewardsHandler } from './src/handlers/rewards';
 import { getFreezesHandler } from './src/handlers/freezes';
 import { getCalendarHandler } from './src/handlers/calendar';
 import { handCompletedHandler } from './src/handlers/internal';
-import { grantFreezesHandler } from './src/handlers/admin';
+import { grantFreezesHandler, getPlayerHistoryHandler } from './src/handlers/admin';
 
 export const app = express();
 
@@ -65,6 +65,13 @@ app.post('/internal/streaks/hand-completed', internalAuthMiddleware, asyncHandle
 // ONLY (Inv 10). Never sits behind player auth; the target player is in the body
 // (never `X-Player-Id`). A missing/invalid secret → 403 before the handler runs.
 app.post('/api/v1/admin/streaks/freezes/grant', internalAuthMiddleware, asyncHandler(grantFreezesHandler));
+
+// Admin view-history (FR-8, §4.8) — the composite player picture for support/
+// debug. `internalAuthMiddleware` (X-Internal-Secret) ONLY (Inv 10); never
+// player auth. The target player is the PATH param (never `X-Player-Id`); a
+// missing/invalid secret → 403 BEFORE any lookup. Scan-free (Inv 8): it reuses
+// the bounded player Query helpers.
+app.get('/api/v1/admin/streaks/players/:playerId/history', internalAuthMiddleware, asyncHandler(getPlayerHistoryHandler));
 
 // Unmatched route (S7-1, §3): forward a canonical `NotFoundError` so the error
 // middleware emits `{error:'NotFound', message}` — NOT the old `{error:'Not
