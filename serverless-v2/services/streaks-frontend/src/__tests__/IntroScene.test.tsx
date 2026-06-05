@@ -10,9 +10,13 @@ import { makeTestStore } from '../test/renderWithProviders';
 import { theme } from '../theme';
 
 /**
- * BL-1 (redesigned): the 3-beat OpenSequence.
- * jsdom doesn't play <video>/<audio>, so we drive Skip and the timeline via
- * the watchdog/timers (fake timers) and assert the phase hand-offs.
+ * BL-1 (interactive redesign): the staged OpenSequence.
+ *
+ *   idle → logo → await(tap) → exit(run-off) → login
+ *
+ * The advance to login now happens on TAP, not on video end. jsdom can't play
+ * <video>/<audio>, so we drive the auto-progression via fake timers and the
+ * tap via click/keyboard.
  */
 function renderSequence() {
   const store = makeTestStore();
@@ -46,15 +50,25 @@ function setReducedMotion(reduce: boolean) {
   });
 }
 
-describe('OpenSequence (redesigned BL-1)', () => {
+/** Advance from idle → await (the auto-progression + prompt reveal). */
+function advanceToAwait() {
+  act(() => {
+    // idle → logo
+    vi.advanceTimersByTime(TIMELINE.IDLE_ENTER_MS + TIMELINE.IDLE_HOLD_MS + 20);
+  });
+  act(() => {
+    // logo → await (prompt reveal)
+    vi.advanceTimersByTime(TIMELINE.PROMPT_DELAY_MS + 20);
+  });
+}
+
+describe('OpenSequence (interactive BL-1)', () => {
   beforeEach(() => {
     setReducedMotion(false);
     sessionStorage.clear();
     localStorage.removeItem('introSound');
     // jsdom has no real <video>/<audio> playback.
-    window.HTMLMediaElement.prototype.play = vi
-      .fn()
-      .mockResolvedValue(undefined);
+    window.HTMLMediaElement.prototype.play = vi.fn().mockResolvedValue(undefined);
     window.HTMLMediaElement.prototype.pause = vi.fn();
   });
 
@@ -66,21 +80,67 @@ describe('OpenSequence (redesigned BL-1)', () => {
     ).toBeInTheDocument();
   });
 
-  it('advances video → logo → login on the timeline', async () => {
+  it('starts on the static idle scene (no run-off video yet)', () => {
+    renderSequence();
+    expect(screen.getByTestId('intro-idle')).toBeInTheDocument();
+    // No gallop <video> mounted at the open — the gallop is the EXIT.
+    expect(document.querySelector('video')).toBeNull();
+  });
+
+  it('progresses idle → logo, then reveals the tap prompt and waits', () => {
     vi.useFakeTimers();
     try {
       renderSequence();
-      // Watchdog leaves Beat 1 -> Beat 2.
       act(() => {
-        vi.advanceTimersByTime(TIMELINE.VIDEO_WATCHDOG_MS + 50);
+        vi.advanceTimersByTime(TIMELINE.IDLE_ENTER_MS + TIMELINE.IDLE_HOLD_MS + 20);
       });
-      // Wordmark of Beat 2 is now on stage.
+      // Logo on stage.
       expect(screen.getByTestId('intro-wordmark')).toBeInTheDocument();
-      // Hold + dissolve carries us to /login (navigate replace).
+      // Still no login (we wait for the tap).
+      expect(screen.queryByText('LOGIN ROUTE')).toBeNull();
+      // Prompt reveals after the chip settles.
       act(() => {
-        vi.advanceTimersByTime(
-          TIMELINE.LOGO_HOLD_MS + TIMELINE.LOGO_TO_LOGIN_MS + 50
-        );
+        vi.advanceTimersByTime(TIMELINE.PROMPT_DELAY_MS + 20);
+      });
+      expect(
+        screen.getByRole('button', { name: /Tap to ride in/i })
+      ).toBeInTheDocument();
+      // Does NOT auto-advance: well past any old hold, still on the intro.
+      act(() => {
+        vi.advanceTimersByTime(3000);
+      });
+      expect(screen.queryByText('LOGIN ROUTE')).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('tapping (click) advances to /login via the run-off exit', () => {
+    vi.useFakeTimers();
+    try {
+      renderSequence();
+      advanceToAwait();
+      const prompt = screen.getByRole('button', { name: /Tap to ride in/i });
+      act(() => {
+        prompt.click();
+      });
+      // Run-off exit, then navigate after EXIT_MS.
+      act(() => {
+        vi.advanceTimersByTime(TIMELINE.EXIT_MS + 50);
+      });
+      expect(screen.getByText('LOGIN ROUTE')).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('the safety timer advances to /login if the user never taps', () => {
+    vi.useFakeTimers();
+    try {
+      renderSequence();
+      advanceToAwait();
+      act(() => {
+        vi.advanceTimersByTime(TIMELINE.AWAIT_SAFETY_MS + TIMELINE.EXIT_MS + 50);
       });
       expect(screen.getByText('LOGIN ROUTE')).toBeInTheDocument();
     } finally {
@@ -95,18 +155,24 @@ describe('OpenSequence (redesigned BL-1)', () => {
     expect(await screen.findByText('LOGIN ROUTE')).toBeInTheDocument();
   });
 
-  it('reduced-motion renders the static end-state (no video), then advances', () => {
+  it('reduced-motion renders the static end-state (no autoplay video), then a tap → login', () => {
     setReducedMotion(true);
     vi.useFakeTimers();
     try {
       renderSequence();
-      // Static end-state shows the wordmark immediately, no horse <video>.
+      // Static lockup shows immediately, no idle/gallop <video> at open.
       expect(screen.getByTestId('intro-wordmark')).toBeInTheDocument();
       expect(document.querySelector('video')).toBeNull();
+      // Prompt arms after a short hold; tap advances.
       act(() => {
-        vi.advanceTimersByTime(
-          TIMELINE.LOGO_HOLD_MS + TIMELINE.LOGO_TO_LOGIN_MS + 50
-        );
+        vi.advanceTimersByTime(TIMELINE.IDLE_HOLD_MS + 20);
+      });
+      const prompt = screen.getByRole('button', { name: /Tap to ride in/i });
+      act(() => {
+        prompt.click();
+      });
+      act(() => {
+        vi.advanceTimersByTime(TIMELINE.EXIT_MS + 50);
       });
       expect(screen.getByText('LOGIN ROUTE')).toBeInTheDocument();
     } finally {
@@ -120,12 +186,8 @@ describe('OpenSequence (redesigned BL-1)', () => {
     const toggle = screen.getByRole('button', { name: /intro sound/i });
     expect(localStorage.getItem('introSound')).not.toBe('on');
     await user.click(toggle);
-    await waitFor(() =>
-      expect(localStorage.getItem('introSound')).toBe('on')
-    );
+    await waitFor(() => expect(localStorage.getItem('introSound')).toBe('on'));
     await user.click(toggle);
-    await waitFor(() =>
-      expect(localStorage.getItem('introSound')).toBe('off')
-    );
+    await waitFor(() => expect(localStorage.getItem('introSound')).toBe('off'));
   });
 });

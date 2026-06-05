@@ -1,37 +1,46 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 /**
- * The 3-beat app-open state machine (redesign BL-1+).
+ * The interactive staged app-open state machine (redesign BL-1++).
  *
- *   video → logo → toLogin → (done)
+ *   idle → logo → await → exit → (done)
  *
- * - `video`   : Beat 1, the horse gallop clip plays full-bleed.
- * - `logo`    : Beat 2, wordmark fades/rises + the HJ chip spins in & settles.
- * - `toLogin` : Beat 3, cross-dissolve into the art-deco LoginScreen.
- * - `done`    : the dissolve finished; the host navigates to /login (replace).
+ * - `idle`  : Beat 1, the STATIC standing-horse image. Fades/scales in, the
+ *             scene "jumps up" (spring bob), then an ambient pulse loop.
+ * - `logo`  : Beat 2, the wordmark rises + the HJ chip coin-flips & settles,
+ *             layered OVER the still idle scene.
+ * - `await` : Beat 3, a pulsing "Tap to ride in" prompt. The sequence WAITS
+ *             for user input here (no auto-advance) — a long safety timer is the
+ *             only thing that can advance it unattended.
+ * - `exit`  : Beat 4, on tap the gallop clip plays and the horse RECEDES into
+ *             the distance (scale↓ + drift toward the sun + fade) while the
+ *             wordmark/chip/prompt dissolve; then we crossfade to login.
+ * - `done`  : the exit crossfade finished; the host navigates to /login.
  *
- * The hook owns timing only — it does not render. Components subscribe to
- * `phase` and call `onVideoEnded` / `skip` to drive it. A watchdog guarantees
- * we leave `video` even if the <video> `onEnded` never fires (some browsers).
+ * The hook owns timing + interaction wiring only — it does not render.
  */
-export type Phase = 'video' | 'logo' | 'toLogin' | 'done';
+export type Phase = 'idle' | 'logo' | 'await' | 'exit' | 'done';
 
 /** Beat-by-beat timeline (ms). Exported so tests/docs reference one source. */
 export const TIMELINE = {
-  /** Hard cap on Beat 1 if `onEnded` never fires (clip is ~4.04s). */
-  VIDEO_WATCHDOG_MS: 4300,
-  /** video → logo cross-dissolve. */
-  VIDEO_TO_LOGO_MS: 300,
+  /** Idle entrance settle (fade/scale-in) before the "jump" bob. */
+  IDLE_ENTER_MS: 450,
+  /** Idle holds (bob + pulse) before the logo reveals over it. */
+  IDLE_HOLD_MS: 1200,
   /** Wordmark enters this long after the logo beat starts. */
   WORDMARK_DELAY_MS: 150,
   /** Chip launches this long after the logo beat starts (just after wordmark). */
   CHIP_DELAY_MS: 300,
   /** Chip travel + rotateY + spring settle window. */
   CHIP_SETTLE_AT_MS: 1350,
-  /** Hold the full lockup before dissolving to login. */
-  LOGO_HOLD_MS: 2300,
-  /** logo → login cross-dissolve. */
-  LOGO_TO_LOGIN_MS: 600,
+  /** After the chip settles, reveal the tap prompt and enter `await`. */
+  PROMPT_DELAY_MS: 1650,
+  /** Safety auto-advance from `await` so the flow can never truly hang. */
+  AWAIT_SAFETY_MS: 12000,
+  /** Horse run-off recede + scene dissolve before the login crossfade. */
+  EXIT_MS: 1200,
+  /** Final crossfade into the login screen (overlaps the tail of EXIT). */
+  EXIT_TO_LOGIN_MS: 600,
 } as const;
 
 /** prefers-reduced-motion: skip the cinematic, show a brief static end-state. */
@@ -64,11 +73,15 @@ export function markIntroSeen(): void {
 export interface Sequencer {
   phase: Phase;
   reducedMotion: boolean;
-  /** Beat 2 has started — drives wordmark/chip enter animations. */
+  /** Beat 2 is on-stage — drives wordmark/chip enter animations. */
   logoActive: boolean;
-  /** Beat 1 → Beat 2 (called from <video> onEnded). */
-  onVideoEnded: () => void;
-  /** Jump straight to the login dissolve (Skip / Esc). */
+  /** The tap prompt is visible and we're waiting for input. */
+  awaitingTap: boolean;
+  /** The horse run-off / exit is underway. */
+  exiting: boolean;
+  /** User tapped/clicked/keyed during `await` → start the run-off exit. */
+  tap: () => void;
+  /** Jump straight to login (Skip / Esc) — no run-off animation. */
   skip: () => void;
   /** Signals the chip has reached its mark (for the settle SFX). */
   onChipSettled: () => void;
@@ -77,13 +90,13 @@ export interface Sequencer {
 }
 
 export function useSequencer(options?: {
-  /** Test seam: force-skip the cinematic to the static end-state. */
+  /** Test seam: force the reduced-motion static path. */
   forceReducedMotion?: boolean;
   /** Called once when the sequence is fully done (host navigates). */
   onDone?: () => void;
 }): Sequencer {
   const reducedMotion = options?.forceReducedMotion ?? prefersReducedMotion();
-  const [phase, setPhase] = useState<Phase>(reducedMotion ? 'logo' : 'video');
+  const [phase, setPhase] = useState<Phase>(reducedMotion ? 'logo' : 'idle');
   const phaseRef = useRef<Phase>(phase);
   phaseRef.current = phase;
   const settleSubs = useRef<Set<() => void>>(new Set());
@@ -101,31 +114,47 @@ export function useSequencer(options?: {
     timers.current.push(id);
   }, []);
 
-  const toLogin = useCallback(() => {
-    setPhase((p) => (p === 'done' ? p : 'toLogin'));
-    after(TIMELINE.LOGO_TO_LOGIN_MS, () => {
+  /** Beat 4 → done: run the exit, then navigate. */
+  const startExit = useCallback(() => {
+    if (phaseRef.current === 'exit' || phaseRef.current === 'done') return;
+    setPhase('exit');
+    after(TIMELINE.EXIT_MS, () => {
       setPhase('done');
       markIntroSeen();
       onDoneRef.current?.();
     });
   }, [after]);
 
+  /** Beat 3: reveal the tap prompt; arm the safety auto-advance. */
+  const enterAwait = useCallback(() => {
+    if (phaseRef.current !== 'logo') return;
+    setPhase('await');
+    after(TIMELINE.AWAIT_SAFETY_MS, () => {
+      if (phaseRef.current === 'await') startExit();
+    });
+  }, [after, startExit]);
+
+  /** Beat 1 → Beat 2: reveal the logo over the idle scene. */
   const enterLogo = useCallback(() => {
+    if (phaseRef.current !== 'idle') return;
     setPhase('logo');
-    after(TIMELINE.LOGO_HOLD_MS, toLogin);
-  }, [after, toLogin]);
+    // After the chip settles + a beat, surface the tap prompt.
+    after(TIMELINE.PROMPT_DELAY_MS, enterAwait);
+  }, [after, enterAwait]);
 
-  const onVideoEnded = useCallback(() => {
-    // Only advance from Beat 1; ignore double-fire (onEnded + watchdog) and
-    // any post-skip call. Guard via the phase ref (no side effect in setState).
-    if (phaseRef.current !== 'video') return;
-    enterLogo();
-  }, [enterLogo]);
+  /** User input during `await` → start the run-off exit. */
+  const tap = useCallback(() => {
+    if (phaseRef.current !== 'await') return;
+    startExit();
+  }, [startExit]);
 
+  /** Skip / Esc → straight to login, no run-off. */
   const skip = useCallback(() => {
     clearTimers();
-    toLogin();
-  }, [clearTimers, toLogin]);
+    setPhase('done');
+    markIntroSeen();
+    onDoneRef.current?.();
+  }, [clearTimers]);
 
   const onChipSettled = useCallback(() => {
     settleSubs.current.forEach((cb) => cb());
@@ -138,24 +167,23 @@ export function useSequencer(options?: {
     };
   }, []);
 
-  // Reduced-motion path: a brief static end-state, then straight to login.
-  // Local timer id so this effect's cleanup never clears the dissolve timer.
+  // Drive the auto-progression idle → logo → (await waits for input).
+  // Reduced-motion starts at `logo` and likewise advances to `await`, but the
+  // OpenSequence renders it as a static end-state (no animation) and the user
+  // still taps (or the safety timer fires) to reach login.
   useEffect(() => {
-    if (!reducedMotion) return;
-    const id = window.setTimeout(toLogin, TIMELINE.LOGO_HOLD_MS);
+    if (reducedMotion) {
+      // Static end-state already at `logo`; arm await after a short hold.
+      const id = window.setTimeout(enterAwait, TIMELINE.IDLE_HOLD_MS);
+      return () => window.clearTimeout(id);
+    }
+    const id = window.setTimeout(
+      enterLogo,
+      TIMELINE.IDLE_ENTER_MS + TIMELINE.IDLE_HOLD_MS
+    );
     return () => window.clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reducedMotion]);
-
-  // Watchdog: guarantee we leave Beat 1 even if onEnded never fires.
-  // Local timer id (not clearTimers) so leaving `video` doesn't wipe the
-  // logo-hold / dissolve timers scheduled by onVideoEnded/skip.
-  useEffect(() => {
-    if (reducedMotion || phase !== 'video') return;
-    const id = window.setTimeout(onVideoEnded, TIMELINE.VIDEO_WATCHDOG_MS);
-    return () => window.clearTimeout(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reducedMotion, phase]);
 
   // Cleanup on unmount.
   useEffect(() => clearTimers, [clearTimers]);
@@ -163,8 +191,10 @@ export function useSequencer(options?: {
   return {
     phase,
     reducedMotion,
-    logoActive: phase === 'logo' || phase === 'toLogin' || phase === 'done',
-    onVideoEnded,
+    logoActive: phase !== 'idle',
+    awaitingTap: phase === 'await',
+    exiting: phase === 'exit' || phase === 'done',
+    tap,
     skip,
     onChipSettled,
     onSettle,
