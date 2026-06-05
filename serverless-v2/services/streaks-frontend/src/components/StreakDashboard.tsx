@@ -11,17 +11,22 @@ import {
 } from '@mui/material';
 import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import LogoutIcon from '@mui/icons-material/Logout';
+import { useDispatch } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import {
   useGetStreaksQuery,
   useGetCalendarQuery,
   useCheckInMutation,
 } from '../store/streaksApi';
+import { logout, type AppDispatch } from '../store';
 import StreakCounter from './StreakCounter';
 import CalendarHeatMap from './CalendarHeatMap';
 import MilestoneProgress from './MilestoneProgress';
 import PersonalBest from './PersonalBest';
 import FreezeStatus from './FreezeStatus';
 import RewardHistory from './RewardHistory';
+import ThemeSwitcher from './ThemeSwitcher';
 
 /** UI display clamp (FR-1.7) — true value can exceed 365, display does not. */
 const DISPLAY_CAP = 365;
@@ -34,6 +39,14 @@ function currentUtcMonth(): string {
 }
 
 export default function StreakDashboard() {
+  const dispatch = useDispatch<AppDispatch>();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    dispatch(logout());
+    navigate('/login', { replace: true });
+  };
+
   // The demo target seeded with all 5 heat-map states is streak-001 / 2026-04.
   // Default to that month so the seeded demo populates on load (ASSUMPTIONS A-2).
   const month = useMemo(
@@ -70,15 +83,26 @@ export default function StreakDashboard() {
             Hijack Daily Streaks
           </Typography>
         </Box>
-        <Button
-          variant="contained"
-          size="large"
-          startIcon={<CheckCircleIcon />}
-          disabled={checkInState.isLoading}
-          onClick={() => checkIn()}
-        >
-          {checkInState.isLoading ? 'Checking in…' : 'Check in today'}
-        </Button>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+          <ThemeSwitcher />
+          <Button
+            variant="contained"
+            size="large"
+            startIcon={<CheckCircleIcon />}
+            disabled={checkInState.isLoading}
+            onClick={() => checkIn()}
+          >
+            {checkInState.isLoading ? 'Checking in…' : 'Check in today'}
+          </Button>
+          <Button
+            variant="outlined"
+            color="inherit"
+            startIcon={<LogoutIcon />}
+            onClick={handleLogout}
+          >
+            Log out
+          </Button>
+        </Box>
       </Box>
 
       {streaksQ.isError && (
