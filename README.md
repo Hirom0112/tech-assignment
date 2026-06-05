@@ -29,6 +29,10 @@ Full challenge documentation: **https://hijack-poker.github.io/tech-assignment/*
 git clone <this-repo>
 cd tech-assignment
 cp .env.example .env
+
+# Enable the versioned pre-push hook (CLAUDE.md §4): runs `tsc --noEmit` +
+# `npm test` for changed packages before every push. Never use --no-verify.
+git config core.hooksPath .githooks
 ```
 
 ### 2. Start your challenge profile
