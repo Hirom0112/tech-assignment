@@ -125,7 +125,8 @@ describe('integration — login milestone award flow (S3)', () => {
     expect(persisted?.lastLoginDate).toBe(TODAY);
   });
 
-  it('next-day advance to 8 ⇒ milestoneEarned: null (8 is not a rung)', async () => {
+  // SM-5(c) part 1: advancing PAST a crossed rung fires NO second award.
+  it('SM-5(c) next-day advance to 8 ⇒ milestoneEarned: null (8 is not a rung)', async () => {
     // simulate the next day: player at 7, lastLoginDate=yesterday, today cleared.
     await seedAtStreak(PLAYER_ID, 7);
 
@@ -139,7 +140,9 @@ describe('integration — login milestone award flow (S3)', () => {
     expect(res.body.milestoneEarned).toBeNull();
   });
 
-  it('GET …/rewards → exactly one reward (the 7-day) with right points + notification', async () => {
+  // SM-5(c) part 2: across the whole instance the 7-rung reward exists EXACTLY
+  // once (fires once per instance, never duplicated by the later advances).
+  it('SM-5(c) GET …/rewards → exactly one reward (the 7-day) with right points + notification', async () => {
     const res = await request(app)
       .get('/api/v1/player/streaks/rewards')
       .set('X-Player-Id', PLAYER_ID);

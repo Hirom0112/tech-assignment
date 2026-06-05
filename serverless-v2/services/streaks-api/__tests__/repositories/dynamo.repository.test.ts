@@ -480,10 +480,17 @@ describe('dynamo.repository — grantFreezeAdmin (pattern J, cap 99)', () => {
 });
 
 describe('dynamo.repository — queryMonth (pattern F, NFR-8 no Scan)', () => {
-  it('issues ONE QueryCommand with begins_with(#date, :ym) + #date alias (no Scan)', async () => {
+  // SM-5(d): a calendar month is served by a SINGLE Query — exactly one `send`,
+  // and the command is a `QueryCommand`, never a `ScanCommand` (Inv 8, NFR-8).
+  it('SM-5(d) issues ONE QueryCommand with begins_with(#date, :ym) + #date alias (no Scan)', async () => {
     send.mockResolvedValueOnce({ Items: [sampleActivity()] });
     const rows = await queryMonth('streak-001', '2026-06');
     expect(send).toHaveBeenCalledTimes(1);
+
+    // The single command must be a Query, not a Scan.
+    const cmd = send.mock.calls[0][0] as { constructor: { name: string } };
+    expect(cmd.constructor.name).toBe('QueryCommand');
+    expect(cmd.constructor.name).not.toBe('ScanCommand');
 
     const input = lastInput();
     expect(input.TableName).toBe('streaks-activity');

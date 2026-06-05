@@ -59,8 +59,10 @@ describe('freeze.service — evaluateFreeze', () => {
     expect(d.grantedMonthly).toBe(false);
   });
 
+  // SM-5(b): a multi-day gap with only 1 freeze still resets — the single
+  // freeze covers the FIRST missed day, the streak resets on the SECOND.
   // S4-3 / S4-4: two missed days (gap>=3), one freeze ⇒ NO protection, reset.
-  it('missed two days, one freeze ⇒ NOT protected (single freeze cannot cover both)', () => {
+  it('SM-5(b) missed two days, one freeze ⇒ NOT protected (single freeze cannot cover both)', () => {
     // lastLoginDate = 3 days ago → gap 3 = two missed days.
     const p = player({
       loginStreak: 9,

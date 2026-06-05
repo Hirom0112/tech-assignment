@@ -35,7 +35,9 @@ describe('integration — check-in → streak read', () => {
     });
   });
 
-  it('same-day repeat POST check-in → 200, streakAdvanced:false (idempotent no-op)', async () => {
+  // SM-5(a): a duplicate same-day check-in does NOT double-increment the streak
+  // (loginStreak stays 1; the activity row's attribute_not_exists gate, Inv 2).
+  it('SM-5(a) same-day repeat POST check-in → 200, streakAdvanced:false (idempotent no-op)', async () => {
     const res = await request(app)
       .post('/api/v1/player/streaks/check-in')
       .set('X-Player-Id', PLAYER_ID);

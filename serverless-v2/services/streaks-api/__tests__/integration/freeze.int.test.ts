@@ -34,10 +34,12 @@ const SECRET = process.env.INTERNAL_API_SECRET as string;
 const PLAYER_ID = `test-s4-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
 const CAP_ID = `test-s4-cap-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
 const MISSING_ID = `test-s4-missing-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+const TWO_MISS_ID = `test-s4-2miss-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
 
 const TODAY = utcDay(nowIso());
 const MISSED_DAY = priorDay(TODAY); // yesterday (the single missed day)
 const TWO_DAYS_AGO = priorDay(MISSED_DAY); // gap 2 from today
+const THREE_DAYS_AGO = priorDay(TWO_DAYS_AGO); // gap 3 = TWO missed days
 
 /**
  * Seed a player at `loginStreak`, `lastLoginDate = 2 days ago` (a 1-missed-day
@@ -72,7 +74,56 @@ async function seedGapPlayer(
   );
 }
 
+/**
+ * Seed a player with a TWO-missed-day gap (`lastLoginDate = 3 days ago`),
+ * `freezesAvailable`, and this-month `lastFreezeGrantDate`. Clears lingering
+ * activity rows across the whole gap window.
+ */
+async function seedTwoMissGapPlayer(
+  playerId: string,
+  loginStreak: number,
+  freezesAvailable: number,
+): Promise<void> {
+  const player: PlayerStreak = {
+    playerId,
+    loginStreak,
+    playStreak: 0,
+    bestLoginStreak: loginStreak,
+    bestPlayStreak: 0,
+    lastLoginDate: THREE_DAYS_AGO,
+    lastPlayDate: null,
+    freezesAvailable,
+    freezesUsedThisMonth: 0,
+    lastFreezeGrantDate: yearMonth(TODAY),
+    createdAt: nowIso(),
+    updatedAt: nowIso(),
+  };
+  await docClient.send(new PutCommand({ TableName: PLAYERS_TABLE, Item: player }));
+  for (const date of [TODAY, MISSED_DAY, TWO_DAYS_AGO]) {
+    await docClient.send(new DeleteCommand({ TableName: ACTIVITY_TABLE, Key: { playerId, date } }));
+  }
+}
+
 describe('integration — freeze protection + admin grant (S4)', () => {
+  // SM-5(b): a 2-missed-day gap with only 1 freeze STILL resets — the freeze
+  // covers the first missed day, the streak resets on the SECOND. End-to-end
+  // counterpart of the freeze.service SM-5(b) unit test.
+  it('SM-5(b) 2 missed days + 1 freeze: check-in ⇒ streak RESETS to 1, freeze not consumed', async () => {
+    await seedTwoMissGapPlayer(TWO_MISS_ID, 9, 1);
+
+    const res = await request(app)
+      .post('/api/v1/player/streaks/check-in')
+      .set('X-Player-Id', TWO_MISS_ID);
+
+    expect(res.status).toBe(200);
+    expect(res.body.streakAdvanced).toBe(true);
+    // The single freeze cannot cover two missed days → reset to today's fresh 1.
+    expect(res.body.freezeConsumed).toBe(false);
+    expect(res.body.streaks.loginStreak).toBe(1);
+    // The freeze balance is untouched (never consumed on an unprotected reset).
+    expect(res.body.streaks.freezesAvailable).toBe(1);
+  });
+
   it('1-missed-day gap + 1 freeze: check-in ⇒ freezeConsumed:true, streak 9 → 10, balance 0', async () => {
     await seedGapPlayer(PLAYER_ID, 9, 1);
 
