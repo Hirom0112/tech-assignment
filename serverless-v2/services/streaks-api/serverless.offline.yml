@@ -31,6 +31,17 @@ functions:
     events:
       - httpApi: '*'
 
+  # [BONUS] Scheduled-freeze cron (FR-10, ARCHITECTURE §5f). Declared here too so
+  # it is invocable locally (`serverless invoke local -f scheduledFreeze`). The
+  # `schedule` event is disabled by default (FREEZE_CRON_ENABLED, default 'false')
+  # so serverless-offline never auto-fires it; an explicit invoke runs it once.
+  scheduledFreeze:
+    handler: src/handlers/scheduled-freeze.scheduledFreeze
+    events:
+      - schedule:
+          rate: cron(5 1 * * ? *)
+          enabled: ${env:FREEZE_CRON_ENABLED, 'false'}
+
 plugins:
   - serverless-esbuild
   - serverless-offline

@@ -11,7 +11,13 @@
  *   gap===1 consecutive → normal advance; gap===2 exactly ONE missed day;
  *   gap>=3 TWO or more missed days (a single freeze can't cover both → reset).
  */
+import { PutCommand, DeleteCommand, GetCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
+
 import { evaluateFreeze } from '../../src/services/freeze.service';
+import { settleFreeze } from '../../src/handlers/scheduled-freeze';
+import { consumeFreeze } from '../../src/repositories/dynamo.repository';
+import { docClient } from '../../shared/config/dynamo';
+import { nowIso, utcDay, yesterday as priorDay } from '../../src/lib/utc';
 import type { PlayerStreak } from '../../src/domain/types';
 
 const TODAY = '2026-06-05';
@@ -202,5 +208,133 @@ describe('freeze.service — evaluateFreeze', () => {
     expect(d.freezeConsumed).toBe(false);
     expect(d.grantedMonthly).toBe(true);
     expect(d.newFreezesAvailable).toBe(1);
+  });
+});
+
+/**
+ * S8-4 / S8-5 — cron/lazy idempotency (FR-10, ARCHITECTURE §5f step 4, ADR-2).
+ *
+ * The scheduled-freeze cron reuses the SAME `freeze.service` decision +
+ * `consumeFreeze` atomic the live check-in uses; the per-day
+ * `attribute_not_exists(date)` guard on `streaks-freeze-history` makes running
+ * the consume twice — two cron passes, or cron-then-lazy — settle a missed day
+ * EXACTLY once. These run against DynamoDB Local (jest.setup env), with a unique
+ * playerId + RELATIVE dates per run so reruns never collide. The shared client
+ * is closed in the global afterAll (jest.teardown) — no per-file teardown needed.
+ */
+describe('freeze.service — cron/lazy idempotency (S8-4/S8-5, §5f step 4)', () => {
+  const PLAYERS_TABLE = process.env.STREAKS_PLAYERS_TABLE ?? 'streaks-players';
+  const ACTIVITY_TABLE = process.env.STREAKS_ACTIVITY_TABLE ?? 'streaks-activity';
+  const FREEZE_HISTORY_TABLE =
+    process.env.STREAKS_FREEZE_HISTORY_TABLE ?? 'streaks-freeze-history';
+
+  const REAL_TODAY = utcDay(nowIso());
+  const MISSED = priorDay(REAL_TODAY); // the single missed day (yesterday)
+  const GAP_DATE = priorDay(MISSED); // 2 days ago → gap 2, protectable
+
+  /** Seed a player with a 1-missed-day gap + exactly one freeze. */
+  async function seedGapPlayer(playerId: string): Promise<void> {
+    const p: PlayerStreak = {
+      playerId,
+      loginStreak: 9,
+      playStreak: 0,
+      bestLoginStreak: 9,
+      bestPlayStreak: 0,
+      lastLoginDate: GAP_DATE,
+      lastPlayDate: null,
+      freezesAvailable: 1,
+      freezesUsedThisMonth: 0,
+      lastFreezeGrantDate: REAL_TODAY.slice(0, 7), // this month → no grant noise
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+    };
+    await docClient.send(new PutCommand({ TableName: PLAYERS_TABLE, Item: p }));
+    for (const date of [REAL_TODAY, MISSED, GAP_DATE]) {
+      await docClient.send(
+        new DeleteCommand({ TableName: ACTIVITY_TABLE, Key: { playerId, date } }),
+      );
+    }
+    await docClient.send(
+      new DeleteCommand({ TableName: FREEZE_HISTORY_TABLE, Key: { playerId, date: MISSED } }),
+    );
+  }
+
+  async function getBalance(playerId: string): Promise<number> {
+    const r = await docClient.send(
+      new GetCommand({ TableName: PLAYERS_TABLE, Key: { playerId } }),
+    );
+    return (r.Item as PlayerStreak).freezesAvailable;
+  }
+
+  async function freezeHistoryCount(playerId: string): Promise<number> {
+    const r = await docClient.send(
+      new QueryCommand({
+        TableName: FREEZE_HISTORY_TABLE,
+        KeyConditionExpression: 'playerId = :p AND #d = :date',
+        ExpressionAttributeNames: { '#d': 'date' },
+        ExpressionAttributeValues: { ':p': playerId, ':date': MISSED },
+      }),
+    );
+    return (r.Items ?? []).length;
+  }
+
+  it('two cron passes against the same missed day ⇒ consume exactly ONCE (no double-consume)', async () => {
+    const playerId = `test-s8-cron-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+    await seedGapPlayer(playerId);
+
+    // First sweep: settles the missed day, decrements the balance 1 → 0.
+    const player1 = (
+      await docClient.send(new GetCommand({ TableName: PLAYERS_TABLE, Key: { playerId } }))
+    ).Item as PlayerStreak;
+    const firstConsumed = await settleFreeze(player1, REAL_TODAY);
+
+    // Second sweep over the now-updated player: the per-day guard makes it a
+    // clean no-op — no second consume, balance unchanged, one history row only.
+    const player2 = (
+      await docClient.send(new GetCommand({ TableName: PLAYERS_TABLE, Key: { playerId } }))
+    ).Item as PlayerStreak;
+    const secondConsumed = await settleFreeze(player2, REAL_TODAY);
+
+    expect(firstConsumed).toBe(1);
+    expect(secondConsumed).toBe(0); // the load-bearing assertion
+    expect(await getBalance(playerId)).toBe(0); // decremented once, not twice
+    expect(await freezeHistoryCount(playerId)).toBe(1); // protected once
+
+    await docClient.send(new DeleteCommand({ TableName: PLAYERS_TABLE, Key: { playerId } }));
+    await docClient.send(
+      new DeleteCommand({ TableName: FREEZE_HISTORY_TABLE, Key: { playerId, date: MISSED } }),
+    );
+  });
+
+  it('cron then lazy (the SAME consumeFreeze) against the same day ⇒ the lazy pass no-ops', async () => {
+    const playerId = `test-s8-cronlazy-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+    await seedGapPlayer(playerId);
+
+    // Cron settles the missed day first.
+    const player = (
+      await docClient.send(new GetCommand({ TableName: PLAYERS_TABLE, Key: { playerId } }))
+    ).Item as PlayerStreak;
+    const cronConsumed = await settleFreeze(player, REAL_TODAY);
+    expect(cronConsumed).toBe(1);
+
+    // Now a lazy check-in tries the SAME atomic consume for the SAME missed day
+    // (post-decrement, balance 0): the `freezesAvailable > 0` + per-day
+    // `attribute_not_exists(date)` conditions cancel the transaction → false.
+    const lazy = await consumeFreeze({
+      playerId,
+      missedDate: MISSED,
+      source: 'purchased',
+      newFreezesAvailable: 0,
+      newFreezesUsedThisMonth: 2,
+      now: nowIso(),
+    });
+    expect(lazy).toBe(false); // never double-consumes
+    expect(await getBalance(playerId)).toBe(0);
+    expect(await freezeHistoryCount(playerId)).toBe(1);
+
+    await docClient.send(new DeleteCommand({ TableName: PLAYERS_TABLE, Key: { playerId } }));
+    await docClient.send(
+      new DeleteCommand({ TableName: FREEZE_HISTORY_TABLE, Key: { playerId, date: MISSED } }),
+    );
   });
 });

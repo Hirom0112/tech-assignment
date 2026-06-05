@@ -18,6 +18,18 @@ functions:
     events:
       - httpApi: '*'
 
+  # [BONUS] Scheduled-freeze cron (FR-10, ARCHITECTURE §5f). Proactively settles
+  # missed-day freezes for absent players, reusing the SAME freeze.service decision
+  # + consumeFreeze atomic the live path uses (ADR-2). NOT an HTTP route (§6).
+  # Disabled by DEFAULT (FR-10): the `schedule` event's `enabled` is driven by
+  # FREEZE_CRON_ENABLED (default 'false'), so the cron never fires unless opted in.
+  scheduledFreeze:
+    handler: src/handlers/scheduled-freeze.scheduledFreeze
+    events:
+      - schedule:
+          rate: cron(5 1 * * ? *) # 01:05 UTC daily (just after the 01:00 UTC freeze tick)
+          enabled: ${env:FREEZE_CRON_ENABLED, 'false'}
+
 plugins:
   - serverless-esbuild
 
