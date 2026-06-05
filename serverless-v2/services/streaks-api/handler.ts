@@ -8,6 +8,7 @@ import { checkInHandler } from './src/handlers/check-in';
 import { getStreaksHandler } from './src/handlers/streaks';
 import { getRewardsHandler } from './src/handlers/rewards';
 import { getFreezesHandler } from './src/handlers/freezes';
+import { getCalendarHandler } from './src/handlers/calendar';
 import { handCompletedHandler } from './src/handlers/internal';
 import { grantFreezesHandler } from './src/handlers/admin';
 
@@ -37,10 +38,12 @@ app.get('/api/v1/player/streaks', authMiddleware, getStreaksHandler);
 app.post('/api/v1/player/streaks/check-in', authMiddleware, checkInHandler);
 app.get('/api/v1/player/streaks/rewards', authMiddleware, getRewardsHandler);
 app.get('/api/v1/player/streaks/freezes', authMiddleware, getFreezesHandler);
+app.get('/api/v1/player/streaks/calendar', authMiddleware, getCalendarHandler);
 app.get('/api/v1/streaks', authMiddleware, getStreaksHandler);
 app.post('/api/v1/streaks/check-in', authMiddleware, checkInHandler);
 app.get('/api/v1/streaks/rewards', authMiddleware, getRewardsHandler);
 app.get('/api/v1/streaks/freezes', authMiddleware, getFreezesHandler);
+app.get('/api/v1/streaks/calendar', authMiddleware, getCalendarHandler);
 
 // Internal server-to-server route (FR-6) — guarded by the shared-secret
 // `internalAuthMiddleware` ONLY (Inv 10, FR-6.3). Deliberately OUTSIDE the
