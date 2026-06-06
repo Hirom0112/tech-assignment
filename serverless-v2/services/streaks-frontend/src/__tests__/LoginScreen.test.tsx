@@ -29,15 +29,24 @@ function renderLogin() {
 }
 
 describe('LoginScreen (BL-1, real Provider + router)', () => {
-  it('renders the HIJACK wordmark and Sign In / Sign Up affordances', () => {
+  it('renders the hero plaque and Sign In / Sign Up affordances', () => {
     renderLogin();
-    expect(screen.getByText('HIJACK')).toBeInTheDocument();
+    // The wordmark/footer are embossed into the plaque art (no HIJACK text node).
+    expect(
+      screen.getByRole('img', { name: /High Roller's Lounge/i })
+    ).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /Sign In/i })
     ).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /Sign Up/i })
     ).toBeInTheDocument();
+  });
+
+  it('does NOT render the theme switcher (login is the fixed brand scene)', () => {
+    renderLogin();
+    expect(screen.queryByRole('button', { name: /theme/i })).toBeNull();
+    expect(screen.queryByText(/Dark|Lounge|Neon/)).toBeNull();
   });
 
   it('Sign In dispatches login(chosen id) and routes to the dashboard', async () => {
