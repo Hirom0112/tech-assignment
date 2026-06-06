@@ -145,12 +145,41 @@ export default function LoginScreen() {
         }}
       />
 
-      {/* Foreground props (chips.png / cards.png) are intentionally OMITTED:
-          they ship with SOLID BLACK backgrounds (not transparency) and contain
-          real black areas, so they can't be cleanly keyed — colorkey eats the
-          chips, screen-blend ghosts them, and on the bright felt they read as
-          black rectangles. The hero (wall + plaque + alive buttons) carries the
-          design. SWAP: re-add when transparent re-exports are provided. */}
+      {/* Foreground props on the felt, flanking the plaque (transparent PNGs). */}
+      <Box
+        component="img"
+        src="/assets/login/chips.png"
+        alt=""
+        aria-hidden
+        sx={{
+          position: 'absolute',
+          left: { xs: '-2%', md: '3%' },
+          bottom: { xs: '2%', md: '5%' },
+          width: { xs: '40vw', md: '26vw' },
+          maxWidth: 460,
+          zIndex: 1,
+          pointerEvents: 'none',
+          filter: 'drop-shadow(0 10px 18px rgba(0,0,0,0.5))',
+          userSelect: 'none',
+        }}
+      />
+      <Box
+        component="img"
+        src="/assets/login/cards.png"
+        alt=""
+        aria-hidden
+        sx={{
+          position: 'absolute',
+          right: { xs: '-2%', md: '3%' },
+          bottom: { xs: '3%', md: '6%' },
+          width: { xs: '38vw', md: '24vw' },
+          maxWidth: 430,
+          zIndex: 1,
+          pointerEvents: 'none',
+          filter: 'drop-shadow(0 10px 18px rgba(0,0,0,0.5))',
+          userSelect: 'none',
+        }}
+      />
 
       {/* The HERO plaque — buttons are positioned relative to it (so they
           scale + move WITH the plaque). The wordmark/pip/footer are baked in. */}
