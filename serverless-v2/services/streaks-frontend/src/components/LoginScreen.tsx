@@ -44,8 +44,8 @@ function freshPlayerId(): string {
 
 // --- "alive" button idle bob (gentle, offset per button) -------------------
 const bob = keyframes`
-  0%, 100% { transform: translateY(0); }
-  50%      { transform: translateY(-2px); }
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50%      { transform: translateX(-50%) translateY(-2px); }
 `;
 
 /**
@@ -158,8 +158,8 @@ export default function LoginScreen() {
         sx={{
           position: 'relative',
           zIndex: 2,
-          height: '90vh',
-          maxHeight: 880,
+          height: '68vh',
+          maxHeight: 610,
           aspectRatio: '900 / 1229',
           filter: 'drop-shadow(0 24px 50px rgba(0,0,0,0.6))',
         }}
