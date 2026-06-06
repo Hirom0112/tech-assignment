@@ -29,8 +29,12 @@ function freshPlayerId(): string {
  *  - btn-signin/up.png   REAL <button>s positioned (as % of the plaque) inside
  *                        the plaque's blank lower metal panel, so they scale +
  *                        move WITH the plaque on resize.
- *  - chips.png/cards.png foreground props (bottom corners, non-interactive).
  *  - a soft warm CSS glow up top stands in for the (un-provided) pendant lamp.
+ *
+ * The chips/cards prop assets are intentionally NOT used — they ship with solid
+ * black backgrounds (not transparency) and can't be cleanly cut out, so they'd
+ * read as black boxes over the felt. The hero scene carries the design; re-add
+ * once transparent re-exports exist.
  *
  * Auth (unchanged): Sign In → login(playerId) → dashboard; Sign Up → fresh
  * player-<rand> id → login → dashboard. A compact, on-theme player picker sits
@@ -141,40 +145,12 @@ export default function LoginScreen() {
         }}
       />
 
-      {/* Foreground prop: chip stacks, bottom-left. */}
-      <Box
-        component="img"
-        src="/assets/login/chips.png"
-        alt=""
-        aria-hidden
-        sx={{
-          position: 'absolute',
-          left: '-2%',
-          bottom: '-2%',
-          width: { xs: '40vw', md: '30vw' },
-          maxWidth: 460,
-          pointerEvents: 'none',
-          filter: 'drop-shadow(0 10px 18px rgba(0,0,0,0.5))',
-          zIndex: 1,
-        }}
-      />
-      {/* Foreground prop: card deck, bottom-right. */}
-      <Box
-        component="img"
-        src="/assets/login/cards.png"
-        alt=""
-        aria-hidden
-        sx={{
-          position: 'absolute',
-          right: '-2%',
-          bottom: '-1%',
-          width: { xs: '38vw', md: '28vw' },
-          maxWidth: 440,
-          pointerEvents: 'none',
-          filter: 'drop-shadow(0 10px 18px rgba(0,0,0,0.5))',
-          zIndex: 1,
-        }}
-      />
+      {/* Foreground props (chips.png / cards.png) are intentionally OMITTED:
+          they ship with SOLID BLACK backgrounds (not transparency) and contain
+          real black areas, so they can't be cleanly keyed — colorkey eats the
+          chips, screen-blend ghosts them, and on the bright felt they read as
+          black rectangles. The hero (wall + plaque + alive buttons) carries the
+          design. SWAP: re-add when transparent re-exports are provided. */}
 
       {/* The HERO plaque — buttons are positioned relative to it (so they
           scale + move WITH the plaque). The wordmark/pip/footer are baked in. */}
