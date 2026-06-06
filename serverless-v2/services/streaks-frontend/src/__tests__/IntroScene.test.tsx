@@ -82,16 +82,17 @@ describe('OpenSequence (interactive BL-1)', () => {
     ).toBeInTheDocument();
   });
 
-  it('starts with ONE looping gallop video playing from load', () => {
+  it('starts with ONE gallop video that plays ONCE (no loop) from load', () => {
     renderSequence();
     expect(screen.getByTestId('intro-horse')).toBeInTheDocument();
-    // Exactly one <video>, autoplay + muted + loop, present from the open.
+    // Exactly one <video>, autoplay + muted, but NOT looping — the footage is a
+    // gallop-in-and-arrive shot, so it plays once and holds the last frame.
     const videos = document.querySelectorAll('video');
     expect(videos).toHaveLength(1);
     const v = videos[0] as HTMLVideoElement;
     expect(v.autoplay).toBe(true);
     expect(v.muted).toBe(true);
-    expect(v.loop).toBe(true);
+    expect(v.loop).toBe(false);
   });
 
   it('keeps exactly one video element through to the run-off exit', () => {
@@ -107,6 +108,33 @@ describe('OpenSequence (interactive BL-1)', () => {
       });
       // ...and still exactly one during the recede (no second element mounted).
       expect(document.querySelectorAll('video')).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('replays the same video from the start on the run-off tap', () => {
+    vi.useFakeTimers();
+    try {
+      renderSequence();
+      advanceToAwait();
+      const video = document.querySelector('video') as HTMLVideoElement;
+      // Track the exit replay: currentTime reset to 0 + play() called.
+      const playSpy = vi.spyOn(video, 'play').mockResolvedValue(undefined);
+      let setTo = -1;
+      Object.defineProperty(video, 'currentTime', {
+        configurable: true,
+        get: () => 0,
+        set: (n: number) => {
+          setTo = n;
+        },
+      });
+      const prompt = screen.getByRole('button', { name: /Tap to ride in/i });
+      act(() => {
+        prompt.click();
+      });
+      expect(setTo).toBe(0); // rewound to the gallop start
+      expect(playSpy).toHaveBeenCalled(); // and replayed for the run-off
     } finally {
       vi.useRealTimers();
     }

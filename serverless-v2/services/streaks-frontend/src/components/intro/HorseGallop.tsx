@@ -6,27 +6,30 @@ import { TIMELINE } from './useSequencer';
 /**
  * Beats 1 + 4 — ONE horse-video layer for the whole sequence.
  *
- * During idle/logo/await it plays the gallop clip LOOPING, full-bleed
- * (autoPlay muted loop playsInline, object-fit: cover) — the horse gallops
- * continuously under the logo and the tap prompt. Muted autoplay is permitted
- * by browsers and the clip carries no audio track, so it plays on load.
+ * This footage is a "gallop-in-and-arrive" shot (the horse travels across and
+ * decelerates to the standing sunset pose), so it CANNOT loop seamlessly —
+ * looping teleports the horse back to the start. Instead it plays ONCE:
  *
- * On `exiting` the SAME element gets the run-off recede transform
- * (scale 1→0.35 + drift up/left toward the sun + fade) — the horse keeps
- * galloping right up until it recedes off-screen. There is exactly one
- * <video> for the entire sequence (no second element is ever mounted).
+ *   Beat 1  the horse gallops in, arrives, and HOLDS on the last frame
+ *           (a non-looping <video> freezes its final frame; we keep it mounted)
+ *   Beat 4  on `exiting`, REPLAY the same element (currentTime = 0 + play())
+ *           so the horse gallops again, while the recede transform carries it
+ *           off into the distance (scale 1→0.35 + drift up/left + fade).
+ *
+ * Net: the horse visibly gallops on ENTRY and on EXIT, and stands (holds) during
+ * the logo reveal + tap-wait. Exactly one <video> for the entire sequence.
  *
  * Reduced-motion: no autoplay video — render the static poster still instead.
  * If the video errors, fall back to the poster (the recede still applies).
  *
- * SWAP: a dedicated "horse runs off receding" clip could replace the reused
- * gallop + CSS recede for a purpose-shot exit.
+ * SWAP: a seamless in-place gallop-loop clip would let the horse gallop
+ * continuously the whole time; this travel-and-arrive shot can't provide that.
  */
 export default function HorseGallop({
   exiting,
   motionless = false,
 }: {
-  /** The run-off exit is underway — apply the recede transform. */
+  /** The run-off exit is underway — replay + apply the recede transform. */
   exiting: boolean;
   /** Reduced-motion: render the static poster, no autoplay video. */
   motionless?: boolean;
@@ -34,15 +37,28 @@ export default function HorseGallop({
   const videoRef = useRef<HTMLVideoElement>(null);
   const [errored, setErrored] = useState(false);
 
-  // Best-effort autoplay kick (some engines defer autoplay until play()).
+  // Entry: best-effort autoplay kick (some engines defer autoplay until play()).
   useEffect(() => {
     if (motionless) return;
     const v = videoRef.current;
     if (!v) return;
     void v.play().catch(() => {
-      /* autoplay deferred — poster covers the gap; loop resumes on gesture */
+      /* autoplay deferred — poster covers the gap; entry resumes on gesture */
     });
   }, [motionless]);
+
+  // Exit: replay the SAME element so the horse gallops off as it recedes.
+  useEffect(() => {
+    if (!exiting || motionless) return;
+    const v = videoRef.current;
+    if (!v) return;
+    try {
+      v.currentTime = 0;
+    } catch {
+      /* not yet seekable — play() from wherever it's held is still fine */
+    }
+    void v.play().catch(() => {});
+  }, [exiting, motionless]);
 
   const showPoster = motionless || errored;
 
@@ -67,7 +83,6 @@ export default function HorseGallop({
               poster="/assets/horse-intro-poster.jpg"
               autoPlay
               muted
-              loop
               playsInline
               onError={() => setErrored(true)}
               style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
@@ -90,7 +105,7 @@ export default function HorseGallop({
           )}
         </m.div>
 
-        {/* Gentle warm sun-glow pulse over the gallop (left third = the sun). */}
+        {/* Gentle warm sun-glow pulse over the scene (left third = the sun). */}
         {!motionless && !exiting && (
           <m.div
             aria-hidden
