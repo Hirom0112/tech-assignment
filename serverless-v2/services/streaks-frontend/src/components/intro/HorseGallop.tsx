@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { LazyMotion, domAnimation, m } from 'framer-motion';
 import { Box } from '@mui/material';
 import { TIMELINE } from './useSequencer';
@@ -34,17 +34,67 @@ export default function HorseGallop({
   /** Reduced-motion: render the static poster, no autoplay video. */
   motionless?: boolean;
 }) {
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
   const [errored, setErrored] = useState(false);
 
-  // Entry: best-effort autoplay kick (some engines defer autoplay until play()).
+  // Callback ref: set `muted` the INSTANT the <video> node mounts, before
+  // Safari evaluates its autoplay gate. React's JSX `muted` attribute is applied
+  // too late (known React bug), so Safari sees the video as "has sound" and
+  // blocks muted autoplay — leaving the horse frozen on the poster. Setting the
+  // property here (commit phase) is what actually unblocks Safari autoplay.
+  const attachVideo = useCallback((el: HTMLVideoElement | null) => {
+    videoRef.current = el;
+    if (el) {
+      el.muted = true;
+      el.defaultMuted = true;
+      el.playsInline = true;
+    }
+  }, []);
+
+  // Entry autoplay — deterministic, race-free.
+  //
+  // The old version fired play() from several places and swallowed every
+  // rejection, so a play() interrupted by a StrictMode re-mount, a not-yet-ready
+  // decoder, or a competing play() call would silently never recover — giving
+  // "sometimes plays / sometimes delayed / sometimes not at all".
+  //
+  // Instead, ONE idempotent `tryPlay`: it no-ops if the video is already playing
+  // (so overlapping calls can't interrupt each other), bails after the effect is
+  // torn down (`cancelled`, so a StrictMode unmount can't leave a stale play()
+  // racing the remount), and is (re)invoked whenever the media becomes ready
+  // (`canplay`/`loadeddata`) or on the first user gesture (covers an autoplay
+  // policy block, e.g. Low Power Mode). `muted`/`playsInline` are already set in
+  // the ref callback before the browser's autoplay gate.
   useEffect(() => {
     if (motionless) return;
     const v = videoRef.current;
     if (!v) return;
-    void v.play().catch(() => {
-      /* autoplay deferred — poster covers the gap; entry resumes on gesture */
-    });
+    let cancelled = false;
+
+    const tryPlay = () => {
+      if (cancelled || v.paused === false) return; // already playing → idempotent
+      const p = v.play();
+      if (p && typeof p.catch === 'function') {
+        // AbortError (interrupted) or NotAllowedError (blocked) → a readiness
+        // event or the first gesture will retry; nothing to do here.
+        p.catch(() => {});
+      }
+    };
+
+    tryPlay();
+    v.addEventListener('canplay', tryPlay);
+    v.addEventListener('loadeddata', tryPlay);
+    const onGesture = () => tryPlay();
+    window.addEventListener('pointerdown', onGesture);
+    window.addEventListener('keydown', onGesture);
+
+    return () => {
+      cancelled = true;
+      v.removeEventListener('canplay', tryPlay);
+      v.removeEventListener('loadeddata', tryPlay);
+      window.removeEventListener('pointerdown', onGesture);
+      window.removeEventListener('keydown', onGesture);
+    };
   }, [motionless]);
 
   // Exit: replay the SAME element so the horse gallops off as it recedes.
@@ -78,9 +128,10 @@ export default function HorseGallop({
         >
           {!showPoster ? (
             <video
-              ref={videoRef}
+              ref={attachVideo}
               data-testid="intro-horse-video"
               poster="/assets/horse-intro-poster.jpg"
+              preload="auto"
               autoPlay
               muted
               playsInline

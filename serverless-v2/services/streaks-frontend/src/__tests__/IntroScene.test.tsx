@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, act, waitFor } from '@testing-library/react';
+import { render, screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { ThemeProvider } from '@mui/material/styles';
@@ -68,17 +68,15 @@ describe('OpenSequence (interactive BL-1)', () => {
   beforeEach(() => {
     setReducedMotion(false);
     sessionStorage.clear();
-    localStorage.removeItem('introSound');
     // jsdom has no real <video>/<audio> playback.
     window.HTMLMediaElement.prototype.play = vi.fn().mockResolvedValue(undefined);
     window.HTMLMediaElement.prototype.pause = vi.fn();
   });
 
-  it('renders the sound toggle but NO Skip button', () => {
+  it('renders no sound toggle and no Skip button', () => {
     renderSequence();
-    expect(
-      screen.getByRole('button', { name: /intro sound/i })
-    ).toBeInTheDocument();
+    // Intro is silent — no audio plays and there is no sound toggle.
+    expect(screen.queryByRole('button', { name: /intro sound/i })).toBeNull();
     // Skip is removed — advancing is via tap-anywhere / Enter / Space / Esc.
     expect(screen.queryByRole('button', { name: /Skip/i })).toBeNull();
   });
@@ -235,14 +233,4 @@ describe('OpenSequence (interactive BL-1)', () => {
     }
   });
 
-  it('sound toggle persists the preference to localStorage', async () => {
-    const user = userEvent.setup();
-    renderSequence();
-    const toggle = screen.getByRole('button', { name: /intro sound/i });
-    expect(localStorage.getItem('introSound')).not.toBe('on');
-    await user.click(toggle);
-    await waitFor(() => expect(localStorage.getItem('introSound')).toBe('on'));
-    await user.click(toggle);
-    await waitFor(() => expect(localStorage.getItem('introSound')).toBe('off'));
-  });
 });

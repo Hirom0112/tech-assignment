@@ -1,13 +1,10 @@
 import { useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Box, IconButton, Tooltip } from '@mui/material';
-import VolumeUpIcon from '@mui/icons-material/VolumeUp';
-import VolumeOffIcon from '@mui/icons-material/VolumeOff';
+import { Box } from '@mui/material';
 import LoginScreen from '../LoginScreen';
 import HorseGallop from './HorseGallop';
 import LogoReveal from './LogoReveal';
 import { useSequencer, TIMELINE } from './useSequencer';
-import { useIntroSound } from './useIntroSound';
 
 /**
  * The interactive staged app-open (Route A, desktop-first).
@@ -27,26 +24,15 @@ import { useIntroSound } from './useIntroSound';
  */
 export default function OpenSequence() {
   const navigate = useNavigate();
-  const sound = useIntroSound();
 
+  // Push (not replace) so /intro stays in history: pressing Back from /login
+  // returns to /intro, which remounts fresh and replays the cinematic from the
+  // top (React Router unmounts/remounts the route — no frozen end-frame).
   const finish = useCallback(() => {
-    sound.stopAll();
-    navigate('/login', { replace: true });
-  }, [navigate, sound]);
+    navigate('/login');
+  }, [navigate]);
 
   const seq = useSequencer({ onDone: finish });
-
-  // Audio: chip-clink on the settle moment; gallop bed on the run-off exit.
-  useEffect(() => {
-    const unsub = seq.onSettle(() => sound.playChipSettle());
-    return unsub;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    if (seq.exiting) sound.playGallop();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [seq.exiting]);
 
   // Esc → silent skip accelerator (no visible Skip button); Enter/Space → tap.
   useEffect(() => {
@@ -107,31 +93,6 @@ export default function OpenSequence() {
           />
         )}
       </Box>
-
-      {/* Sound toggle — top-LEFT (no visible Skip button; tap/Esc advance). */}
-      {!seq.exiting && (
-        <Box
-          sx={{ position: 'absolute', top: 20, left: 20, zIndex: 10 }}
-          // Don't let the control trigger the tap-anywhere handler.
-          onClick={(e) => e.stopPropagation()}
-        >
-          <Tooltip title={sound.enabled ? 'Sound on' : 'Sound off'}>
-            <IconButton
-              onClick={sound.toggle}
-              aria-label={sound.enabled ? 'Mute intro sound' : 'Unmute intro sound'}
-              aria-pressed={sound.enabled}
-              sx={{
-                color: '#F3E6CC',
-                bgcolor: 'rgba(0,0,0,0.25)',
-                backdropFilter: 'blur(4px)',
-                '&:hover': { bgcolor: 'rgba(0,0,0,0.4)' },
-              }}
-            >
-              {sound.enabled ? <VolumeUpIcon /> : <VolumeOffIcon />}
-            </IconButton>
-          </Tooltip>
-        </Box>
-      )}
     </Box>
   );
 }
