@@ -58,6 +58,23 @@ const hijackTavernOptions: ThemeOptions = {
     h6: { fontFamily: '"Cinzel", "Georgia", serif', fontWeight: 700 },
   },
   shape: { borderRadius: 8 },
+  components: {
+    // The wood-table backdrop is pinned to the VIEWPORT (fixed), so it fills the
+    // screen at every scroll position — the page content scrolls over a steady
+    // table instead of the image scrolling away and leaving gaps top/bottom.
+    MuiCssBaseline: {
+      styleOverrides: {
+        body: {
+          backgroundColor: '#2E1D10',
+          backgroundImage: 'url(/assets/dashboard/bg/bg-wood.jpg)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center center',
+          backgroundRepeat: 'no-repeat',
+          backgroundAttachment: 'fixed',
+        },
+      },
+    },
+  },
 };
 
 export const themes = {
