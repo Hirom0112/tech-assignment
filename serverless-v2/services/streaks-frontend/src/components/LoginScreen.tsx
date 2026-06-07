@@ -4,11 +4,17 @@ import { useDispatch } from 'react-redux';
 import { Box, MenuItem, Select, Typography } from '@mui/material';
 import { login, type AppDispatch } from '../store';
 
-/** Seeded demo players (ASSUMPTIONS A-2): streak-001..010 as quick-picks. */
-const SEEDED_IDS = Array.from(
-  { length: 10 },
-  (_, i) => `streak-${String(i + 1).padStart(3, '0')}`
-);
+/**
+ * Seeded demo personas (ASSUMPTIONS A-2): a deliberate 4-persona cast that
+ * exercises every state the dashboard can render. Ids stay streak-001..004 (the
+ * demo default + tests reference them); the labels are what the picker shows.
+ */
+const SEEDED_PLAYERS = [
+  { id: 'streak-001', label: 'The Grinder' },
+  { id: 'streak-002', label: 'The Legend' },
+  { id: 'streak-003', label: 'The Newcomer' },
+  { id: 'streak-004', label: 'The Comeback' },
+];
 
 /** Generate a fresh, zero-state player id for Sign Up (backend auto-creates). */
 function freshPlayerId(): string {
@@ -301,9 +307,9 @@ export default function LoginScreen() {
           }}
           MenuProps={{ PaperProps: { sx: { bgcolor: '#1B130C', color: '#F3E6CC' } } }}
         >
-          {SEEDED_IDS.map((id) => (
-            <MenuItem key={id} value={id}>
-              {id}
+          {SEEDED_PLAYERS.map((p) => (
+            <MenuItem key={p.id} value={p.id}>
+              {p.label}
             </MenuItem>
           ))}
         </Select>
