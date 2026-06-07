@@ -56,4 +56,22 @@ aws dynamodb create-table $AWS_OPTS \
   --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5 \
   2>/dev/null && echo "  Created: streaks-activity" || echo "  Exists:  streaks-activity"
 
+aws dynamodb create-table $AWS_OPTS \
+  --table-name streaks-rewards \
+  --attribute-definitions \
+    AttributeName=playerId,AttributeType=S \
+    AttributeName=rewardId,AttributeType=S \
+  --key-schema AttributeName=playerId,KeyType=HASH AttributeName=rewardId,KeyType=RANGE \
+  --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5 \
+  2>/dev/null && echo "  Created: streaks-rewards" || echo "  Exists:  streaks-rewards"
+
+aws dynamodb create-table $AWS_OPTS \
+  --table-name streaks-freeze-history \
+  --attribute-definitions \
+    AttributeName=playerId,AttributeType=S \
+    AttributeName=date,AttributeType=S \
+  --key-schema AttributeName=playerId,KeyType=HASH AttributeName=date,KeyType=RANGE \
+  --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5 \
+  2>/dev/null && echo "  Created: streaks-freeze-history" || echo "  Exists:  streaks-freeze-history"
+
 echo "Done. All DynamoDB tables ready."

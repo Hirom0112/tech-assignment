@@ -199,7 +199,7 @@
 
 ## Post-build backlog (logged during the build)
 
-- [ ] PI-1: `scripts/init-dynamodb.sh` creates only 2 of the 4 streaks tables — add `streaks-rewards` + `streaks-freeze-history` (frozen key schema) so a standalone run matches docker-compose/CI. *(check: the script creates all 4)*
+- [x] PI-1: `scripts/init-dynamodb.sh` creates only 2 of the 4 streaks tables — add `streaks-rewards` + `streaks-freeze-history` (frozen key schema) so a standalone run matches docker-compose/CI. *(check: the script creates all 4)* — **DONE:** added both tables with compose-matching key schema; verified against a clean DynamoDB Local (all 4 streaks tables created, idempotent re-run reports `Exists:`).
 
 ---
 

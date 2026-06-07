@@ -260,9 +260,7 @@ the sibling skeleton services (`holdem-processor`, `rewards-api`, `cash-game-bro
 **out of this feature's scope and untouched** — they pass once their own and the
 `serverless-v2/shared` `node_modules` are installed.
 
-> **What we'd do next** (genuinely remaining): PI-1 — `scripts/init-dynamodb.sh` creates 2
-> of the 4 streaks tables (the running stack uses docker-compose's full init, so this only
-> affects a standalone run of that helper); and a docs-align sweep of the `RESEARCH.md`
+> **What we'd do next** (genuinely remaining): a docs-align sweep of the `RESEARCH.md`
 > citations (that file lives in the parent dir, outside this repo).
 
 ---
