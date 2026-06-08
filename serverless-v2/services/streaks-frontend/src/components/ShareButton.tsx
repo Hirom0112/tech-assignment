@@ -9,10 +9,12 @@ import {
   Box,
   Typography,
 } from '@mui/material';
-import IosShareIcon from '@mui/icons-material/IosShare';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../store';
+import ImageButton from './ImageButton';
+
+const SHARE_BTN = '/assets/dashboard/ui/btn-share.png';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
 
@@ -68,14 +70,7 @@ export default function ShareButton() {
 
   return (
     <>
-      <Button
-        variant="outlined"
-        color="primary"
-        startIcon={<IosShareIcon />}
-        onClick={handleOpen}
-      >
-        Share
-      </Button>
+      <ImageButton src={SHARE_BTN} alt="Share" onClick={handleOpen} height={54} />
 
       <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
         <DialogTitle>Your Hot Streak card</DialogTitle>

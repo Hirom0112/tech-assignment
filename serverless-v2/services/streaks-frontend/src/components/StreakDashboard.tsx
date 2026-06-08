@@ -2,16 +2,12 @@ import { useMemo } from 'react';
 import {
   Alert,
   Box,
-  Button,
   CircularProgress,
   Container,
   Grid,
   Snackbar,
-  Typography,
 } from '@mui/material';
-import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import LogoutIcon from '@mui/icons-material/Logout';
+import { visuallyHidden } from '@mui/utils';
 import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -27,6 +23,12 @@ import PersonalBest from './PersonalBest';
 import FreezeStatus from './FreezeStatus';
 import RewardHistory from './RewardHistory';
 import ShareButton from './ShareButton';
+import ImageButton from './ImageButton';
+
+const LOGO = '/assets/dashboard/ui/logo.png';
+const SHIELD = '/assets/dashboard/ui/shield.png';
+const BTN_CHECKIN = '/assets/dashboard/ui/btn-checkin.png';
+const BTN_LOGOUT = '/assets/dashboard/ui/btn-logout.png';
 
 /** UI display clamp (FR-1.7) — true value can exceed 365, display does not. */
 const DISPLAY_CAP = 365;
@@ -77,32 +79,34 @@ export default function StreakDashboard() {
           mb: 4,
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <LocalFireDepartmentIcon sx={{ fontSize: 40, color: 'primary.main' }} />
-          <Typography variant="h4" component="h1">
+        <Box component="h1" sx={{ display: 'flex', alignItems: 'center', gap: 1.5, m: 0 }}>
+          <Box
+            component="img"
+            src={SHIELD}
+            alt=""
+            sx={{ height: 56, width: 'auto', filter: 'drop-shadow(0 3px 6px rgba(0,0,0,0.5))' }}
+          />
+          <Box
+            component="img"
+            src={LOGO}
+            alt=""
+            sx={{ height: 44, width: 'auto', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }}
+          />
+          <Box component="span" sx={visuallyHidden}>
             Hijack Daily Streaks
-          </Typography>
+          </Box>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
-          <Button
-            variant="contained"
-            size="large"
-            startIcon={<CheckCircleIcon />}
+          <ImageButton
+            src={BTN_CHECKIN}
+            alt="Check in today"
+            height={52}
             disabled={checkInState.isLoading}
             onClick={() => checkIn()}
-          >
-            {checkInState.isLoading ? 'Checking in…' : 'Check in today'}
-          </Button>
+          />
           {/* secondary actions grouped together */}
           <ShareButton />
-          <Button
-            variant="outlined"
-            color="inherit"
-            startIcon={<LogoutIcon />}
-            onClick={handleLogout}
-          >
-            Log out
-          </Button>
+          <ImageButton src={BTN_LOGOUT} alt="Log out" height={52} onClick={handleLogout} />
         </Box>
       </Box>
 
