@@ -6,6 +6,8 @@ import CssBaseline from '@mui/material/CssBaseline';
 import App from './App';
 import { store, type RootState } from './store';
 import { themes } from './theme';
+import { EditorProvider } from './editor/EditorContext';
+import EditorToolbar from './editor/EditorToolbar';
 
 /**
  * Drives MUI's ThemeProvider from the `theme` redux slice. There is currently a
@@ -17,7 +19,10 @@ function ThemedApp() {
   return (
     <ThemeProvider theme={themes[themeName]}>
       <CssBaseline />
-      <App />
+      <EditorProvider>
+        <App />
+        <EditorToolbar />
+      </EditorProvider>
     </ThemeProvider>
   );
 }

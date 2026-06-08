@@ -1,5 +1,6 @@
 import { Box, Typography } from '@mui/material';
 import Panel from './Panel';
+import Editable from '../editor/Editable';
 
 export type Motif = 'flame' | 'cards';
 
@@ -73,7 +74,7 @@ function FlameMotif({ value }: { value: number }) {
       <Box
         data-testid="motif-flame"
         aria-label="flame"
-        style={{ transform: `scale(calc(${flameScale(value)} * var(--flame-mult, 1)))` }}
+        style={{ transform: `scale(${flameScale(value)})` }}
         sx={{
           position: 'absolute',
           left: 0,
@@ -172,17 +173,21 @@ export default function StreakCounter({ label, value, best, motif }: StreakCount
         {/* right: the motif (grows with the streak) */}
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
           {isFlame ? (
-            <FlameMotif value={value} />
+            <Editable id="brazier" label="Brazier">
+              <FlameMotif value={value} />
+            </Editable>
           ) : (
-            <Box
-              component="img"
-              data-testid="motif-cards"
-              aria-label="cards"
-              src={CARDS_SRC}
-              alt=""
-              style={{ transform: `scale(${scaleFor(value)})` }}
-              sx={{ width: 124, height: 124, objectFit: 'contain', transformOrigin: 'center' }}
-            />
+            <Editable id="ace" label="Card fan">
+              <Box
+                component="img"
+                data-testid="motif-cards"
+                aria-label="cards"
+                src={CARDS_SRC}
+                alt=""
+                style={{ transform: `scale(${scaleFor(value)})` }}
+                sx={{ width: 124, height: 124, objectFit: 'contain', transformOrigin: 'center' }}
+              />
+            </Editable>
           )}
         </Box>
       </Box>

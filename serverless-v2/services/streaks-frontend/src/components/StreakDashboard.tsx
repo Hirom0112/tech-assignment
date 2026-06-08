@@ -24,7 +24,7 @@ import FreezeStatus from './FreezeStatus';
 import RewardHistory from './RewardHistory';
 import ShareButton from './ShareButton';
 import ImageButton from './ImageButton';
-import EditPanel from './EditPanel';
+import Editable from '../editor/Editable';
 
 const LOGO = '/assets/dashboard/ui/logo.png';
 const SHIELD = '/assets/dashboard/ui/shield.png';
@@ -70,8 +70,6 @@ export default function StreakDashboard() {
 
   return (
     <Container maxWidth="lg" sx={{ py: 5 }}>
-      <EditPanel />
-
       <Box
         sx={{
           display: 'flex',
@@ -83,33 +81,41 @@ export default function StreakDashboard() {
         }}
       >
         <Box component="h1" sx={{ display: 'flex', alignItems: 'center', gap: 1.5, m: 0 }}>
-          <Box
-            component="img"
-            src={SHIELD}
-            alt=""
-            sx={{ height: 'var(--shield-h, 56px)', width: 'auto', filter: 'drop-shadow(0 3px 6px rgba(0,0,0,0.5))' }}
-          />
-          <Box
-            component="img"
-            src={LOGO}
-            alt=""
-            sx={{ height: 'var(--logo-h, 44px)', width: 'auto', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }}
-          />
+          <Editable id="shield" label="Shield crest">
+            <Box
+              component="img"
+              src={SHIELD}
+              alt=""
+              sx={{ height: 56, width: 'auto', display: 'block', filter: 'drop-shadow(0 3px 6px rgba(0,0,0,0.5))' }}
+            />
+          </Editable>
+          <Editable id="logo" label="Logo wordmark">
+            <Box
+              component="img"
+              src={LOGO}
+              alt=""
+              sx={{ height: 44, width: 'auto', display: 'block', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }}
+            />
+          </Editable>
           <Box component="span" sx={visuallyHidden}>
             Hijack Daily Streaks
           </Box>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
-          <ImageButton
-            src={BTN_CHECKIN}
-            alt="Check in today"
-            height="var(--btn-h, 52px)"
-            disabled={checkInState.isLoading}
-            onClick={() => checkIn()}
-          />
+          <Editable id="btn-checkin" label="Check-in button">
+            <ImageButton
+              src={BTN_CHECKIN}
+              alt="Check in today"
+              height={52}
+              disabled={checkInState.isLoading}
+              onClick={() => checkIn()}
+            />
+          </Editable>
           {/* secondary actions grouped together */}
           <ShareButton />
-          <ImageButton src={BTN_LOGOUT} alt="Log out" height="var(--btn-h, 52px)" onClick={handleLogout} />
+          <Editable id="btn-logout" label="Log-out button">
+            <ImageButton src={BTN_LOGOUT} alt="Log out" height={52} onClick={handleLogout} />
+          </Editable>
         </Box>
       </Box>
 

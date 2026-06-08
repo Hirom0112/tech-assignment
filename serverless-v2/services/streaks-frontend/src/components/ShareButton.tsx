@@ -13,6 +13,7 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { useSelector } from 'react-redux';
 import type { RootState } from '../store';
 import ImageButton from './ImageButton';
+import Editable from '../editor/Editable';
 
 const SHARE_BTN = '/assets/dashboard/ui/btn-share.png';
 
@@ -70,7 +71,9 @@ export default function ShareButton() {
 
   return (
     <>
-      <ImageButton src={SHARE_BTN} alt="Share" onClick={handleOpen} height="var(--btn-h, 52px)" />
+      <Editable id="btn-share" label="Share button">
+        <ImageButton src={SHARE_BTN} alt="Share" onClick={handleOpen} height={52} />
+      </Editable>
 
       <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
         <DialogTitle>Your Hot Streak card</DialogTitle>

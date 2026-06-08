@@ -27,10 +27,10 @@ export default function Panel({ children, sx, innerSx }: PanelProps) {
         boxSizing: 'border-box',
         borderStyle: 'solid',
         borderColor: 'transparent',
-        borderWidth: 'var(--panel-border, 30px)',
+        borderWidth: '30px',
         borderImageSource: `url(${LEATHER})`,
         borderImageSlice: '150 fill',
-        borderImageWidth: 'var(--panel-border, 30px)',
+        borderImageWidth: '30px',
         borderImageRepeat: 'stretch',
         ...sx,
       }}
