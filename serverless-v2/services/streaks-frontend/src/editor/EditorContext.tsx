@@ -6,6 +6,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { DEFAULT_LAYOUT } from './defaultLayout';
 
 /** Per-asset visual transform (applied as a CSS transform, non-destructive). */
 export interface Transform {
@@ -45,11 +46,14 @@ export function EditorProvider({ children }: { children: ReactNode }) {
     return localStorage.getItem(LS_ACTIVE) === '1';
   });
   const [overrides, setOverrides] = useState<Record<string, Transform>>(() => {
+    // Start from the baked redesign, then let any locally-saved edits win.
+    let stored: Record<string, Transform> = {};
     try {
-      return JSON.parse(localStorage.getItem(LS_OVERRIDES) || '{}');
+      stored = JSON.parse(localStorage.getItem(LS_OVERRIDES) || '{}');
     } catch {
-      return {};
+      stored = {};
     }
+    return { ...DEFAULT_LAYOUT, ...stored };
   });
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [registered, setRegistered] = useState<string[]>([]);
@@ -87,7 +91,7 @@ export function EditorProvider({ children }: { children: ReactNode }) {
       return next;
     });
   }, []);
-  const resetAll = useCallback(() => setOverrides({}), []);
+  const resetAll = useCallback(() => setOverrides({ ...DEFAULT_LAYOUT }), []);
   const exportJson = useCallback(() => JSON.stringify(overrides, null, 2), [overrides]);
 
   return (
