@@ -1,6 +1,7 @@
 import { Box, Chip, List, ListItem, ListItemText, Typography } from '@mui/material';
 import AcUnitIcon from '@mui/icons-material/AcUnit';
 import Panel from './Panel';
+import Rule from './Rule';
 import { useGetFreezesQuery } from '../store/streaksApi';
 
 interface FreezeStatusProps {
@@ -18,6 +19,7 @@ export default function FreezeStatus({ todayActivity }: FreezeStatusProps) {
         <AcUnitIcon sx={{ color: '#6FB6D6' }} />
         <Typography variant="h6">Streak Freezes</Typography>
       </Box>
+      <Rule my={1} />
 
       {isLoading && <Typography color="text.secondary">Loading freezes…</Typography>}
       {isError && (
@@ -43,9 +45,8 @@ export default function FreezeStatus({ todayActivity }: FreezeStatusProps) {
             Used this month: {data.freezesUsedThisMonth}
           </Typography>
 
-          <Typography variant="subtitle2" sx={{ mt: 2 }}>
-            Last used
-          </Typography>
+          <Rule my={1.5} />
+          <Typography variant="subtitle2">Last used</Typography>
           {data.history.length === 0 ? (
             <Typography variant="body2" color="text.secondary">
               No freezes used yet.

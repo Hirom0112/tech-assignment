@@ -1,6 +1,7 @@
 import { Box, Tooltip, Typography, useTheme } from '@mui/material';
 import type { Activity, ActivityDay } from '../types/streaks.types';
 import Panel from './Panel';
+import Rule from './Rule';
 
 /**
  * Default (dark-brand) heat-map colors (FR-4.3 / §5.1) — kept as the cell-tint
@@ -44,32 +45,65 @@ const LABEL: Record<Activity, string> = {
   broken: 'Streak broken',
 };
 
+/** Sunday-first weekday initials for the calendar header. */
+const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
+/** "2026-04" → "April 2026". */
+function fmtMonth(month: string): string {
+  const [y, m] = month.split('-').map(Number);
+  const name = new Date(Date.UTC(y, m - 1, 1)).toLocaleString('en-US', {
+    month: 'long',
+    timeZone: 'UTC',
+  });
+  return `${name} ${y}`;
+}
+
+/** UTC weekday (0=Sun…6=Sat) of a YYYY-MM-DD date. */
+function weekday(dateStr: string): number {
+  return new Date(`${dateStr}T00:00:00Z`).getUTCDay();
+}
+
 interface CalendarHeatMapProps {
   month: string;
   days: ActivityDay[];
 }
 
 /**
- * FR-4.3: 30-day calendar heat map. A CSS grid of one inset "slot" per day; each
- * slot is a dark leather well faintly ringed by the activity color and carrying a
- * painted icon (person / cards / ice / broken-heart), or an empty well for
- * `none`. Each cell keeps its tooltip + testid + aria-label.
+ * FR-4.3: month calendar heat map — a 7-column Sunday→Saturday grid (the first
+ * day is offset to its real weekday) filling the panel width. Each day is a dark
+ * leather well carrying a painted icon (person / cards / ice / broken-heart), or
+ * an empty well for `none`. Each cell keeps its tooltip + testid + aria-label.
  */
 export default function CalendarHeatMap({ month, days }: CalendarHeatMapProps) {
   const theme = useTheme();
   const colors = theme.palette.heatmap ?? ACTIVITY_COLORS;
+  const leadOffset = days.length ? weekday(days[0].date) : 0;
+
   return (
     <Panel innerSx={{ py: 0.5 }}>
-      <Typography variant="h6" gutterBottom>
-        Activity — {month}
-      </Typography>
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(7, 1fr)',
-          gap: 0.75,
-        }}
-      >
+      <Typography variant="h6">{fmtMonth(month)}</Typography>
+      <Rule my={1} />
+      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 0.75 }}>
+        {/* weekday header row (S M T W T F S) */}
+        {WEEKDAYS.map((d, i) => (
+          <Typography
+            key={`wd-${i}`}
+            align="center"
+            sx={{
+              fontFamily: '"Zilla Slab", Georgia, serif',
+              fontWeight: 700,
+              fontSize: 12,
+              color: 'text.secondary',
+              pb: 0.25,
+            }}
+          >
+            {d}
+          </Typography>
+        ))}
+        {/* lead blanks so day 1 lands under its real weekday */}
+        {Array.from({ length: leadOffset }).map((_, i) => (
+          <Box key={`lead-${i}`} sx={{ aspectRatio: '1 / 1' }} />
+        ))}
         {days.map((day) => {
           const activity = normalize(day.activity);
           const icon = ACTIVITY_ICONS[activity];
@@ -101,7 +135,13 @@ export default function CalendarHeatMap({ month, days }: CalendarHeatMapProps) {
                     component="img"
                     src={icon}
                     alt={LABEL[activity]}
-                    sx={{ width: '74%', height: '74%', objectFit: 'contain' }}
+                    sx={{
+                      width: '76%',
+                      height: '76%',
+                      objectFit: 'contain',
+                      filter:
+                        'drop-shadow(0 1px 1px rgba(0,0,0,0.6)) saturate(1.15) contrast(1.08)',
+                    }}
                   />
                 )}
               </Box>

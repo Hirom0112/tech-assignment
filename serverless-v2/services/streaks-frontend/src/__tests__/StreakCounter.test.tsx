@@ -13,7 +13,8 @@ describe('StreakCounter', () => {
         motif="flame"
       />
     );
-    expect(screen.getByText('12')).toBeInTheDocument();
+    // the streak number shows as the big stat AND embossed on the flames
+    expect(screen.getAllByText('12').length).toBeGreaterThan(0);
     expect(screen.getByText('Login Streak')).toBeInTheDocument();
     expect(screen.getByTestId('motif-flame')).toBeInTheDocument();
     expect(screen.getByText(/Best:\s*45/)).toBeInTheDocument();

@@ -50,12 +50,13 @@ const hijackTavernOptions: ThemeOptions = {
     },
   },
   typography: {
-    // Body stays a clean serif; headings use the engraved display serif (Cinzel,
-    // loaded in index.html) for the tavern signage feel.
+    // Body is a clean old-style serif; headings + big numerals use Zilla Slab
+    // (a bold slab serif — the warm "saloon signage" weight from the concept art).
     fontFamily: '"Spectral", "Georgia", "Times New Roman", serif',
-    h4: { fontFamily: '"Cinzel", "Georgia", serif', fontWeight: 700, letterSpacing: '0.5px' },
-    h5: { fontFamily: '"Cinzel", "Georgia", serif', fontWeight: 700 },
-    h6: { fontFamily: '"Cinzel", "Georgia", serif', fontWeight: 700 },
+    h2: { fontFamily: '"Zilla Slab", "Georgia", serif', fontWeight: 700 },
+    h4: { fontFamily: '"Zilla Slab", "Georgia", serif', fontWeight: 700, letterSpacing: 0 },
+    h5: { fontFamily: '"Zilla Slab", "Georgia", serif', fontWeight: 700 },
+    h6: { fontFamily: '"Zilla Slab", "Georgia", serif', fontWeight: 700, letterSpacing: 0 },
   },
   shape: { borderRadius: 8 },
   components: {

@@ -1,6 +1,7 @@
 import { Box, Typography } from '@mui/material';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import Panel from './Panel';
+import Rule from './Rule';
 
 interface PersonalBestProps {
   bestLoginStreak: number;
@@ -18,6 +19,7 @@ export default function PersonalBest({
         <EmojiEventsIcon sx={{ color: 'primary.main' }} />
         <Typography variant="h6">Personal Best</Typography>
       </Box>
+      <Rule my={1} />
       <Box sx={{ display: 'flex', gap: 4 }}>
         <Box>
           <Typography variant="overline" color="text.secondary">

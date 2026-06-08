@@ -84,7 +84,6 @@ export default function StreakDashboard() {
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
-          <ShareButton />
           <Button
             variant="contained"
             size="large"
@@ -94,6 +93,8 @@ export default function StreakDashboard() {
           >
             {checkInState.isLoading ? 'Checking in…' : 'Check in today'}
           </Button>
+          {/* secondary actions grouped together */}
+          <ShareButton />
           <Button
             variant="outlined"
             color="inherit"
@@ -155,17 +156,19 @@ export default function StreakDashboard() {
               />
             )}
           </Grid>
+          {/* right column: personal best stacked over the freeze status */}
           <Grid item xs={12} md={4}>
-            <PersonalBest
-              bestLoginStreak={streaks.bestLoginStreak}
-              bestPlayStreak={streaks.bestPlayStreak}
-            />
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, height: '100%' }}>
+              <PersonalBest
+                bestLoginStreak={streaks.bestLoginStreak}
+                bestPlayStreak={streaks.bestPlayStreak}
+              />
+              <FreezeStatus todayActivity={todayActivity} />
+            </Box>
           </Grid>
 
-          <Grid item xs={12} md={6}>
-            <FreezeStatus todayActivity={todayActivity} />
-          </Grid>
-          <Grid item xs={12} md={6}>
+          {/* reward history runs the full width along the bottom */}
+          <Grid item xs={12}>
             <RewardHistory />
           </Grid>
         </Grid>
