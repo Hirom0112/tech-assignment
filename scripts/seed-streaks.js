@@ -37,9 +37,9 @@
  *                                 ladder, freezes banked but never used.
  *   • streak-003  The Newcomer  — just joined; near-zero streaks, EMPTY rewards
  *                                 + freeze history, "1 day from your first reward".
- *   • streak-004  The Comeback  — lapsed pro; best (47) ≫ current, a visible
- *                                 break, a freeze used, login-dominant divergence,
- *                                 glory-day milestones still in the reward log.
+ *   • streak-004  The Comeback  — lapsed pro back NOW; best (47) ≫ current (6),
+ *                                 a live streak ending today with a visible reset
+ *                                 + a freeze used, glory-day milestones still logged.
  *
  * Each persona is defined by an explicit per-day SCRIPT over the demo month plus
  * a small carry-in (the streak it walked in with). The interpreter mirrors the
@@ -183,18 +183,25 @@ function newcomerScript() {
   return s;
 }
 
-// The Comeback: a lapsed pro. One active spell ~7 weeks back — continues an old
-// streak to its best (47), a real break (red), a thin comeback with a freeze
-// save (blue) — then goes quiet through today. Best ≫ current; old milestones
-// still in the log.
+// The Comeback: a lapsed pro who is back NOW. An old run crests at the personal
+// best (47) ~7 weeks back, then weeks of silence (the lapse) — and a live 6-day
+// streak that runs right up to today, so the dashboard's current streak (6) and
+// the current-month calendar agree. Best (47) ≫ current (6); old milestones in
+// the log. The return day resets the streak (red), then it rebuilds with a
+// freeze save (blue) and played days.
 function comebackScript() {
   const s = fill('.');
-  const b = 42; // start of the spell (~53 days ago)
+  // Glory days: an old run cresting at the best (carryLogin 44 → 45, 46, 47),
+  // then the lapse — weeks of `none` follow.
+  const b = 42;
   s[b] = 'P'; s[b + 1] = 'P'; s[b + 2] = 'L'; // → 45, 46, 47 (best)
-  s[b + 3] = 'X';                              // break (red)
-  s[b + 4] = 'L'; s[b + 5] = 'P'; s[b + 6] = 'P'; // thin comeback
-  s[b + 7] = 'F';                              // freeze save (blue)
-  s[b + 8] = 'L';
+  // The comeback, NOW — a live streak ending today (login 6, play 2):
+  setFromEnd(s, 5, 'X'); // returns after the gap → streak resets to 1 (red)
+  setFromEnd(s, 4, 'L'); // → 2 (login-only)
+  setFromEnd(s, 3, 'F'); // → 3 (free-monthly freeze save, blue)
+  setFromEnd(s, 2, 'L'); // → 4
+  setFromEnd(s, 1, 'P'); // → 5 (play resumes)
+  setFromEnd(s, 0, 'P'); // today → login 6, play streak 2
   return s;
 }
 
