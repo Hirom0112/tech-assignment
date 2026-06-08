@@ -9,3 +9,11 @@ coverage/
 
 # Reference-only design mockup (not shipped)
 serverless-v2/services/streaks-frontend/public/assets/dashboard-ref.png
+
+# Raw high-res art originals — vendored locally so they travel with the working
+# tree, but kept out of the clean submission (web-ready versions live under
+# public/assets/dashboard/). See HANDOFFS + memory [[hijack-poker-asset-sources]].
+design-assets/
+
+# Internal company/competitive deep-dive — kept local, not part of the public PR.
+hijack-poker-company-dossier.md
