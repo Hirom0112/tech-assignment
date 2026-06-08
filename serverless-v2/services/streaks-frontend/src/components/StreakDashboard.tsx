@@ -133,7 +133,7 @@ export default function StreakDashboard() {
 
       {streaks && (
         <Grid container spacing={3}>
-          <Grid item xs={6} md={3}>
+          <Grid item xs={12} sm={6} md={3}>
             <StreakCounter
               label="Login Streak"
               value={clamp(streaks.loginStreak)}
@@ -141,7 +141,7 @@ export default function StreakDashboard() {
               motif="flame"
             />
           </Grid>
-          <Grid item xs={6} md={3}>
+          <Grid item xs={12} sm={6} md={3}>
             <StreakCounter
               label="Play Streak"
               value={clamp(streaks.playStreak)}
@@ -169,14 +169,14 @@ export default function StreakDashboard() {
               />
             )}
           </Grid>
-          {/* right column: personal best stacked over the freeze status */}
+          {/* right column: streak freezes stacked over personal best */}
           <Grid item xs={12} md={4}>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <FreezeStatus todayActivity={todayActivity} />
               <PersonalBest
                 bestLoginStreak={streaks.bestLoginStreak}
                 bestPlayStreak={streaks.bestPlayStreak}
               />
-              <FreezeStatus todayActivity={todayActivity} />
             </Box>
           </Grid>
 

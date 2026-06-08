@@ -6,7 +6,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { DEFAULT_LAYOUT } from './defaultLayout';
+import { DEFAULT_LAYOUT, LAYOUT_VERSION } from './defaultLayout';
 
 /** Per-asset visual transform (applied as a CSS transform, non-destructive). */
 export interface Transform {
@@ -46,10 +46,17 @@ export function EditorProvider({ children }: { children: ReactNode }) {
     return localStorage.getItem(LS_ACTIVE) === '1';
   });
   const [overrides, setOverrides] = useState<Record<string, Transform>>(() => {
-    // Start from the baked redesign, then let any locally-saved edits win.
+    // Discard saved edits from an older layout version (so stale card positions
+    // can't mask the responsive grid); otherwise start from the baked header and
+    // let local edits win.
     let stored: Record<string, Transform> = {};
     try {
-      stored = JSON.parse(localStorage.getItem(LS_OVERRIDES) || '{}');
+      if (localStorage.getItem('editorLayoutVersion') === String(LAYOUT_VERSION)) {
+        stored = JSON.parse(localStorage.getItem(LS_OVERRIDES) || '{}');
+      } else {
+        localStorage.setItem('editorLayoutVersion', String(LAYOUT_VERSION));
+        localStorage.removeItem(LS_OVERRIDES);
+      }
     } catch {
       stored = {};
     }

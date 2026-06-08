@@ -130,17 +130,32 @@ export default function CalendarHeatMap({ month, days }: CalendarHeatMapProps) {
                   '&:hover': { transform: 'scale(1.12)' },
                 }}
               >
+                {/* faint day-of-month number */}
+                <Typography
+                  sx={{
+                    position: 'absolute',
+                    top: 2,
+                    left: 4,
+                    fontSize: 9,
+                    fontWeight: 600,
+                    lineHeight: 1,
+                    color: 'rgba(247,236,212,0.45)',
+                    pointerEvents: 'none',
+                  }}
+                >
+                  {day.date.slice(-2)}
+                </Typography>
                 {icon && (
                   <Box
                     component="img"
                     src={icon}
                     alt={LABEL[activity]}
                     sx={{
-                      width: '76%',
-                      height: '76%',
+                      width: '64%',
+                      height: '64%',
                       objectFit: 'contain',
-                      filter:
-                        'drop-shadow(0 1px 1px rgba(0,0,0,0.6)) saturate(1.15) contrast(1.08)',
+                      opacity: 0.92,
+                      filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.5))',
                     }}
                   />
                 )}

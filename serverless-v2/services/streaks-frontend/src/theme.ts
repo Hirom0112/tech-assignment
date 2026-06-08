@@ -40,7 +40,7 @@ const hijackTavernOptions: ThemeOptions = {
     primary: { main: '#E08A3C' }, // amber / orange accent
     secondary: { main: '#C9A24B' }, // brass / gold
     background: { default: '#2E1D10', paper: '#3D2817' }, // dark wood / burnished leather
-    text: { primary: '#F3E6CC', secondary: '#C9B68F' },
+    text: { primary: '#F7ECD4', secondary: '#DEC892' }, // brighter for contrast on leather
     heatmap: {
       none: '#4A3522',
       login_only: '#D8C081',
