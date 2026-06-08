@@ -8,8 +8,8 @@ interface ImageButtonProps {
   alt: string;
   onClick?: () => void;
   disabled?: boolean;
-  /** Rendered height in px. */
-  height?: number;
+  /** Rendered height (px number or a CSS length, e.g. a var()). */
+  height?: number | string;
   sx?: SxProps<Theme>;
 }
 

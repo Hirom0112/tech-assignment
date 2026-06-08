@@ -42,7 +42,8 @@ describe('StreakCounter', () => {
     const big = screen.getByTestId('motif-flame');
     const bigScale = big.style.transform;
 
-    const num = (t: string) => Number(t.match(/scale\(([\d.]+)\)/)?.[1] ?? '0');
+    // transform is `scale(N)` or `scale(calc(N * var(--flame-mult, 1)))`
+    const num = (t: string) => Number(t.match(/scale\((?:calc\()?([\d.]+)/)?.[1] ?? '0');
     expect(num(bigScale)).toBeGreaterThan(num(smallScale));
   });
 });

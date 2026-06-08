@@ -24,6 +24,7 @@ import FreezeStatus from './FreezeStatus';
 import RewardHistory from './RewardHistory';
 import ShareButton from './ShareButton';
 import ImageButton from './ImageButton';
+import EditPanel from './EditPanel';
 
 const LOGO = '/assets/dashboard/ui/logo.png';
 const SHIELD = '/assets/dashboard/ui/shield.png';
@@ -69,6 +70,8 @@ export default function StreakDashboard() {
 
   return (
     <Container maxWidth="lg" sx={{ py: 5 }}>
+      <EditPanel />
+
       <Box
         sx={{
           display: 'flex',
@@ -84,13 +87,13 @@ export default function StreakDashboard() {
             component="img"
             src={SHIELD}
             alt=""
-            sx={{ height: 56, width: 'auto', filter: 'drop-shadow(0 3px 6px rgba(0,0,0,0.5))' }}
+            sx={{ height: 'var(--shield-h, 56px)', width: 'auto', filter: 'drop-shadow(0 3px 6px rgba(0,0,0,0.5))' }}
           />
           <Box
             component="img"
             src={LOGO}
             alt=""
-            sx={{ height: 44, width: 'auto', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }}
+            sx={{ height: 'var(--logo-h, 44px)', width: 'auto', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }}
           />
           <Box component="span" sx={visuallyHidden}>
             Hijack Daily Streaks
@@ -100,13 +103,13 @@ export default function StreakDashboard() {
           <ImageButton
             src={BTN_CHECKIN}
             alt="Check in today"
-            height={52}
+            height="var(--btn-h, 52px)"
             disabled={checkInState.isLoading}
             onClick={() => checkIn()}
           />
           {/* secondary actions grouped together */}
           <ShareButton />
-          <ImageButton src={BTN_LOGOUT} alt="Log out" height={52} onClick={handleLogout} />
+          <ImageButton src={BTN_LOGOUT} alt="Log out" height="var(--btn-h, 52px)" onClick={handleLogout} />
         </Box>
       </Box>
 

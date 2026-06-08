@@ -70,7 +70,7 @@ export default function ShareButton() {
 
   return (
     <>
-      <ImageButton src={SHARE_BTN} alt="Share" onClick={handleOpen} height={54} />
+      <ImageButton src={SHARE_BTN} alt="Share" onClick={handleOpen} height="var(--btn-h, 52px)" />
 
       <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
         <DialogTitle>Your Hot Streak card</DialogTitle>

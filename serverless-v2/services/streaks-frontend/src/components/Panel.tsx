@@ -27,15 +27,15 @@ export default function Panel({ children, sx, innerSx }: PanelProps) {
         boxSizing: 'border-box',
         borderStyle: 'solid',
         borderColor: 'transparent',
-        borderWidth: '30px',
+        borderWidth: 'var(--panel-border, 30px)',
         borderImageSource: `url(${LEATHER})`,
         borderImageSlice: '150 fill',
-        borderImageWidth: '30px',
+        borderImageWidth: 'var(--panel-border, 30px)',
         borderImageRepeat: 'stretch',
         ...sx,
       }}
     >
-      <Box sx={{ position: 'relative', ...innerSx }}>{children}</Box>
+      <Box sx={{ position: 'relative', px: 0.5, ...innerSx }}>{children}</Box>
     </Box>
   );
 }

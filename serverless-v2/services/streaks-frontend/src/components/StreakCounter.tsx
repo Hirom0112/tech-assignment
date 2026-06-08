@@ -73,7 +73,7 @@ function FlameMotif({ value }: { value: number }) {
       <Box
         data-testid="motif-flame"
         aria-label="flame"
-        style={{ transform: `scale(${flameScale(value)})` }}
+        style={{ transform: `scale(calc(${flameScale(value)} * var(--flame-mult, 1)))` }}
         sx={{
           position: 'absolute',
           left: 0,
