@@ -21,7 +21,7 @@ export default function PersonalBest({
           component="img"
           src={SHIELD_FIRE}
           alt=""
-          sx={{ width: 90, height: 90, objectFit: 'contain', filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.6))' }}
+          sx={{ width: 135, height: 135, objectFit: 'contain', filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.6))' }}
         />
         <Typography variant="h6">Personal Best</Typography>
       </Box>

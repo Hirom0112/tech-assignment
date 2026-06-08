@@ -46,7 +46,7 @@ export default function FreezeStatus({ todayActivity }: FreezeStatusProps) {
           component="img"
           src={ICE}
           alt=""
-          sx={{ width: 52, height: 52, objectFit: 'contain', filter: 'drop-shadow(0 0 5px rgba(111,182,214,0.85))' }}
+          sx={{ width: 78, height: 78, objectFit: 'contain', filter: 'drop-shadow(0 0 5px rgba(111,182,214,0.85))' }}
         />
         <Typography variant="h6">Streak Freezes</Typography>
       </Box>

@@ -12,12 +12,17 @@ interface StreakCounterProps {
 }
 
 /**
- * Gentle grow factor for the motif (zero-dep CSS transform), clamped so a huge
- * streak (e.g. 95) can't blow the motif out of the card.
+ * Motif scale as a function of the streak: small for a newcomer, growing
+ * *proportionally* toward a capped maximum so a huge streak (e.g. the Legend's
+ * 175) stays in proportion to its number and never blows out of the card. The
+ * scale rises linearly with the streak up to `FULL_BY` days, then holds at `max`.
  */
-const SCALE_CAP = 365;
-const scaleFor = (streak: number) =>
-  Math.min(1.4, 1 + Math.min(Math.max(streak, 0), SCALE_CAP) * 0.006);
+const FULL_BY = 24;
+const motifScale = (streak: number, min: number, max: number) =>
+  min + (max - min) * Math.min(1, Math.max(0, streak) / FULL_BY);
+
+/** Card fan: 0.74 for a fresh streak → 1.08 by ~24 days (was a 1.4 cap). */
+const scaleFor = (streak: number) => motifScale(streak, 0.74, 1.08);
 
 const POT_SRC = '/assets/dashboard/icons/pot.png';
 const FLAMES_SRC = '/assets/dashboard/icons/flames.png';
@@ -29,10 +34,9 @@ const CARDS_SRC = '/assets/dashboard/icons/ace.png';
  * the flames grow — so the brazier is "alive + interactive".
  */
 function flameScale(streak: number): number {
-  const s = Math.max(0, streak);
-  // A healthy flame even at a modest streak: ~1.0 by day 12, lifting toward 90.
-  if (s >= 20) return Math.min(1.28, 1.12 + (s - 20) * 0.0022);
-  return 0.8 + (s / 20) * 0.32; // 0.8 → 1.12 across the first 20 days
+  // 0.72 for a fresh ember → 1.10 by ~24 days, then held (was a 1.28 cap that
+  // the Legend's 175 hit, dwarfing its shrunk-to-fit number).
+  return motifScale(streak, 0.72, 1.1);
 }
 
 /**
