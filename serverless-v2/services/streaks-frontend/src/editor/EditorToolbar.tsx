@@ -38,8 +38,8 @@ function Row({
 
 /**
  * The floating editor controls (shown when edit mode is on). Pick an asset on the
- * page (it outlines gold), then move it by dragging or fine-tune rotation / width
- * / length / flip here. "Copy layout" exports every override as JSON to hand back.
+ * page (it outlines gold), then move it by dragging or fine-tune uniform size /
+ * rotation / width / length / flip here. "Copy layout" exports the JSON to hand back.
  */
 export default function EditorToolbar() {
   const ed = useEditor();
@@ -89,6 +89,22 @@ export default function EditorToolbar() {
           <Typography variant="caption" sx={{ color: '#E0B860', display: 'block', mb: 0.5 }}>
             Editing: <b>{id}</b>
           </Typography>
+          {/* Uniform resize — scales width + length together (keeps any flip sign),
+              so a chip grows/shrinks proportionally without distorting. */}
+          <Row
+            label="Size (uniform)"
+            value={(Math.abs(t.sx) + Math.abs(t.sy)) / 2}
+            min={0.2}
+            max={3}
+            step={0.02}
+            onChange={(v) =>
+              set({
+                sx: (t.sx < 0 ? -1 : 1) * v,
+                sy: (t.sy < 0 ? -1 : 1) * v,
+              })
+            }
+            fmt={(v) => `${v.toFixed(2)}×`}
+          />
           <Row label="Rotation" value={t.rot} min={-180} max={180} step={1} onChange={(v) => set({ rot: v })} fmt={(v) => `${v}°`} />
           <Row label="Width (scaleX)" value={t.sx} min={0.2} max={3} step={0.02} onChange={(v) => set({ sx: v })} fmt={(v) => v.toFixed(2)} />
           <Row label="Length (scaleY)" value={t.sy} min={0.2} max={3} step={0.02} onChange={(v) => set({ sy: v })} fmt={(v) => v.toFixed(2)} />
@@ -117,6 +133,22 @@ export default function EditorToolbar() {
           Reset all
         </Button>
       </Box>
+      <Button
+        fullWidth
+        size="small"
+        variant="outlined"
+        onClick={() => {
+          // Wipe every saved edit + the stored version, then hard-reload so the
+          // baked default layout (from code) is re-applied fresh. Use this when a
+          // refresh "won't update" — saved edits at the same version mask the code.
+          localStorage.removeItem('editorOverrides');
+          localStorage.removeItem('editorLayoutVersion');
+          window.location.reload();
+        }}
+        sx={{ mt: 1, color: '#E0B860', borderColor: 'rgba(201,162,75,0.5)' }}
+      >
+        ⟳ Reset to default &amp; reload
+      </Button>
       <Typography variant="caption" sx={{ display: 'block', mt: 1, opacity: 0.6, lineHeight: 1.3 }}>
         Drag assets to place; tune here. Copy layout and send it to me to bake in.
       </Typography>
