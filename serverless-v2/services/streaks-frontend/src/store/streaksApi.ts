@@ -5,6 +5,7 @@ import type {
   CalendarResponse,
   RewardRecord,
   FreezesResponse,
+  BadgesResponse,
   CheckInResponse,
 } from '../types/streaks.types';
 
@@ -25,7 +26,7 @@ export const streaksApi = createApi({
       return headers;
     },
   }),
-  tagTypes: ['Streaks', 'Calendar', 'Rewards', 'Freezes'],
+  tagTypes: ['Streaks', 'Calendar', 'Rewards', 'Freezes', 'Badges'],
   endpoints: (builder) => ({
     getStreaks: builder.query<StreaksResponse, void>({
       query: () => '',
@@ -43,9 +44,13 @@ export const streaksApi = createApi({
       query: () => '/freezes',
       providesTags: ['Freezes'],
     }),
+    getBadges: builder.query<BadgesResponse, void>({
+      query: () => '/badges',
+      providesTags: ['Badges'],
+    }),
     checkIn: builder.mutation<CheckInResponse, void>({
       query: () => ({ url: '/check-in', method: 'POST' }),
-      invalidatesTags: ['Streaks', 'Calendar', 'Rewards', 'Freezes'],
+      invalidatesTags: ['Streaks', 'Calendar', 'Rewards', 'Freezes', 'Badges'],
     }),
   }),
 });
@@ -55,5 +60,6 @@ export const {
   useGetCalendarQuery,
   useGetRewardsQuery,
   useGetFreezesQuery,
+  useGetBadgesQuery,
   useCheckInMutation,
 } = streaksApi;

@@ -1,5 +1,6 @@
 import { Box, Typography } from '@mui/material';
 import type { Milestone } from '../types/streaks.types';
+import { badgeName, type StreakAxis } from '../config/badges';
 import Panel from './Panel';
 import Rule from './Rule';
 
@@ -118,18 +119,23 @@ function LadderBar({
 }
 
 function MilestoneAxis({
+  axis,
   label,
   verb,
   streak,
   milestone,
   accent,
 }: {
+  axis: StreakAxis;
   label: string;
   verb: string;
   streak: number;
   milestone: Milestone | null;
   accent: string;
 }) {
+  // The Trophy Shelf rank unlocked at the next milestone (DRY — same names the
+  // /badges endpoint returns; see src/config/badges.ts).
+  const nextBadge = milestone ? badgeName(axis, milestone.days) : undefined;
   return (
     <Box>
       <Typography variant="subtitle2" sx={{ color: accent, fontWeight: 700 }}>
@@ -143,6 +149,11 @@ function MilestoneAxis({
       ) : (
         <Typography variant="body2" fontWeight={600}>
           Max milestone reached
+        </Typography>
+      )}
+      {milestone && nextBadge && (
+        <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', mt: 0.25 }}>
+          Next badge: {nextBadge} ({milestone.daysRemaining}d)
         </Typography>
       )}
       <LadderBar streak={streak} nextDays={milestone?.days ?? null} accent={accent} />
@@ -170,6 +181,7 @@ export default function MilestoneProgress({
       </Typography>
       <Rule my={1} />
       <MilestoneAxis
+        axis="login"
         label="Login"
         verb="Log in"
         streak={loginStreak}
@@ -178,6 +190,7 @@ export default function MilestoneProgress({
       />
       <Rule my={1.5} />
       <MilestoneAxis
+        axis="play"
         label="Play"
         verb="Play"
         streak={playStreak}

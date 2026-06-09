@@ -22,6 +22,7 @@ import MilestoneProgress from './MilestoneProgress';
 import PersonalBest from './PersonalBest';
 import FreezeStatus from './FreezeStatus';
 import RewardHistory from './RewardHistory';
+import BadgeCase from './BadgeCase';
 import ShareButton from './ShareButton';
 import ImageButton from './ImageButton';
 import ScaleToFit from './ScaleToFit';
@@ -226,6 +227,11 @@ export default function StreakDashboard() {
                 bestPlayStreak={streaks.bestPlayStreak}
               />
             </Box>
+          </Grid>
+
+          {/* trophy shelf runs full width above the reward ledger */}
+          <Grid item xs={12}>
+            <BadgeCase />
           </Grid>
 
           {/* reward history runs the full width along the bottom */}

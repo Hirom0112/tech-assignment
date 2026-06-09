@@ -4,6 +4,7 @@ import type {
   CalendarResponse,
   RewardRecord,
   FreezesResponse,
+  BadgesResponse,
 } from '../../types/streaks.types';
 
 const BASE = 'http://localhost:5001/api/v1/player/streaks';
@@ -73,6 +74,27 @@ export const mockRewards: RewardRecord[] = [
   },
 ];
 
+// Six ascending rungs per axis (3/7/14/30/60/90). Login earned through 14,
+// play through 7 — so both an earned and a locked state render in tests.
+export const mockBadges: BadgesResponse = {
+  login: [
+    { milestone: 3, name: 'Greenhorn', tier: 'tin', earned: true, earnedAt: '2026-04-01T08:00:00Z' },
+    { milestone: 7, name: 'Deputy', tier: 'copper', earned: true, earnedAt: '2026-04-05T08:00:00Z' },
+    { milestone: 14, name: 'Sheriff', tier: 'bronze', earned: true, earnedAt: '2026-04-12T08:00:00Z' },
+    { milestone: 30, name: 'Marshal', tier: 'silver', earned: false, earnedAt: null },
+    { milestone: 60, name: 'Ranger Captain', tier: 'gold', earned: false, earnedAt: null },
+    { milestone: 90, name: 'Frontier Legend', tier: 'platinum', earned: false, earnedAt: null },
+  ],
+  play: [
+    { milestone: 3, name: 'Anted In', tier: 'tin', earned: true, earnedAt: '2026-04-02T08:00:00Z' },
+    { milestone: 7, name: 'Card Sharp', tier: 'copper', earned: true, earnedAt: '2026-04-06T08:00:00Z' },
+    { milestone: 14, name: "Dead Man's Hand", tier: 'bronze', earned: false, earnedAt: null },
+    { milestone: 30, name: 'Quick Draw', tier: 'silver', earned: false, earnedAt: null },
+    { milestone: 60, name: 'High Roller', tier: 'gold', earned: false, earnedAt: null },
+    { milestone: 90, name: 'Royal Flush', tier: 'platinum', earned: false, earnedAt: null },
+  ],
+};
+
 export const mockFreezes: FreezesResponse = {
   freezesAvailable: 2,
   freezesUsedThisMonth: 1,
@@ -88,6 +110,7 @@ export const handlers = [
   http.get(`${BASE}/calendar`, () => HttpResponse.json(mockCalendar)),
   http.get(`${BASE}/rewards`, () => HttpResponse.json(mockRewards)),
   http.get(`${BASE}/freezes`, () => HttpResponse.json(mockFreezes)),
+  http.get(`${BASE}/badges`, () => HttpResponse.json(mockBadges)),
   http.post(`${BASE}/check-in`, () =>
     HttpResponse.json({
       playerId: 'streak-001',

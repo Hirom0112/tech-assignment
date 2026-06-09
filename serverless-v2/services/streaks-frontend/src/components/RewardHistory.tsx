@@ -2,6 +2,7 @@ import { Box, Paper, Typography } from '@mui/material';
 import RedeemIcon from '@mui/icons-material/Redeem';
 import { useGetRewardsQuery } from '../store/streaksApi';
 import type { RewardRecord } from '../types/streaks.types';
+import { badgeName } from '../config/badges';
 import Editable from '../editor/Editable';
 
 /** Parchment ledger background; the columns/rows are drawn in CSS on top of it. */
@@ -21,7 +22,9 @@ function fmtDate(iso: string): string {
 }
 
 function RewardRow({ reward, isNew }: { reward: RewardRecord; isNew: boolean }) {
-  const axis = reward.type === 'login_milestone' ? 'Login' : 'Play';
+  const axisKey = reward.type === 'login_milestone' ? 'login' : 'play';
+  const axis = axisKey === 'login' ? 'Login' : 'Play';
+  const badge = badgeName(axisKey, reward.milestone); // the specific rank this reward earned
   return (
     <Box
       sx={{
@@ -46,6 +49,27 @@ function RewardRow({ reward, isNew }: { reward: RewardRecord; isNew: boolean }) 
       </Typography>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
         <Typography sx={{ fontSize: 14 }}>{axis}</Typography>
+        {/* the specific Trophy Shelf rank this milestone earned (e.g. "Deputy") */}
+        {badge && (
+          <Box
+            component="span"
+            sx={{
+              fontSize: 10,
+              fontWeight: 800,
+              letterSpacing: 0.5,
+              color: '#3a2a16',
+              backgroundColor: '#d6b05c',
+              border: '1px solid rgba(58,42,22,0.45)',
+              borderRadius: 1,
+              px: 0.6,
+              py: '1px',
+              whiteSpace: 'nowrap',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.3)',
+            }}
+          >
+            {badge}
+          </Box>
+        )}
         {isNew && (
           <Box
             component="span"

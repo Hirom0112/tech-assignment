@@ -74,6 +74,24 @@ export interface FreezesResponse {
   history: FreezeEvent[];
 }
 
+/** Visual-only rank material; always ascends tin → platinum. */
+export type BadgeTier = 'tin' | 'copper' | 'bronze' | 'silver' | 'gold' | 'platinum';
+
+/** One trophy-shelf rung (§ badges contract). One per milestone (3/7/14/30/60/90). */
+export interface Badge {
+  milestone: number;
+  name: string;
+  tier: BadgeTier;
+  earned: boolean;
+  earnedAt: string | null;
+}
+
+/** GET /badges — six ascending rungs per axis (login + play). */
+export interface BadgesResponse {
+  login: Badge[];
+  play: Badge[];
+}
+
 /** POST /check-in (§4.2). */
 export interface CheckInResponse {
   playerId: string;

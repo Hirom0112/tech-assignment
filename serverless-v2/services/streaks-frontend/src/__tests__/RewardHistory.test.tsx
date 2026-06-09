@@ -13,4 +13,11 @@ describe('RewardHistory (MSW-backed)', () => {
     // Date is rendered in the ledger's friendly format ("Apr 15, 2026").
     expect(await screen.findByText('Apr 15, 2026')).toBeInTheDocument();
   });
+
+  it('shows the specific badge rank earned in the Type column', async () => {
+    renderWithProviders(<RewardHistory />);
+    // The mock returns a 7-day login reward (Deputy) and a 3-day play reward (Anted In).
+    expect(await screen.findByText('Deputy')).toBeInTheDocument();
+    expect(await screen.findByText('Anted In')).toBeInTheDocument();
+  });
 });
