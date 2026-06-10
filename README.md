@@ -43,16 +43,14 @@ backed by DynamoDB conditional writes — safe to retry, never double-counts.
 
 ![Streaks dashboard — player streak-001](docs/assets/dashboard.png)
 
-<p align="center"><img src="docs/assets/dashboard-mobile.png" alt="Streaks dashboard on a phone — responsive, mobile-first" width="300"></p>
-
 The default demo player is **`streak-001`** ("The Grinder") — the seed fixture tuned to
 exercise **all five heat-map states**. The seed **anchors its data to the day you run
 it**, so the dashboard opens on the **current UTC month** with live-looking history and
 stays current whenever a reviewer runs it (no stale fixed-date fixtures). The calendar
 arrows page back up to 90 days; `VITE_DEMO_MONTH=YYYY-MM` (see
 `streaks-frontend/.env.example`) can pin a specific opening month. The whole dashboard is
-**responsive / mobile-first** (above right) — it stacks cleanly down to a 375px phone with
-the desktop layout untouched.
+**responsive / mobile-first** — it stacks cleanly down to a 375px phone with the desktop
+layout untouched.
 
 What ships:
 
