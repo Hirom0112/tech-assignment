@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { Box, Paper, Typography } from '@mui/material';
 import RedeemIcon from '@mui/icons-material/Redeem';
 import { useGetRewardsQuery } from '../store/streaksApi';
@@ -21,10 +22,20 @@ function fmtDate(iso: string): string {
   return `${month} ${d.getUTCDate()}, ${d.getUTCFullYear()}`;
 }
 
-function RewardRow({ reward, isNew }: { reward: RewardRecord; isNew: boolean }) {
+function RewardRow({
+  reward,
+  isNew,
+  showBadge,
+}: {
+  reward: RewardRecord;
+  isNew: boolean;
+  /** A rank badge is earned once for life, so only the FIRST time a milestone was
+   *  reached shows its rank tag; later re-reaches still log their points. */
+  showBadge: boolean;
+}) {
   const axisKey = reward.type === 'login_milestone' ? 'login' : 'play';
   const axis = axisKey === 'login' ? 'Login' : 'Play';
-  const badge = badgeName(axisKey, reward.milestone); // the specific rank this reward earned
+  const badge = showBadge ? badgeName(axisKey, reward.milestone) : null; // rank earned (first time only)
   return (
     <Box
       sx={{
@@ -101,6 +112,21 @@ export default function RewardHistory() {
   // Flag the two most recent rewards as NEW (the list is returned newest-first).
   const newCount = 2;
 
+  // A rank badge is permanent ("never lose the badge"), so it's only *earned*
+  // the first time its milestone is reached. Rewards arrive newest-first (the API
+  // orders them by the sortable rewardId), so the LAST occurrence of each
+  // (axis, milestone) is the oldest — the original earning event that gets the
+  // rank tag; later re-reaches still log points but carry no badge. Letting later
+  // (older) rows overwrite uses that guaranteed order directly, with no timestamp
+  // re-parsing or tie-break ambiguity.
+  const firstEarnedIds = useMemo(() => {
+    const earliestId = new Map<string, string>();
+    for (const r of data ?? []) {
+      earliestId.set(`${r.type}-${r.milestone}`, r.rewardId);
+    }
+    return new Set(earliestId.values());
+  }, [data]);
+
   return (
     <Editable id="card-rewards" label="Reward History card" fill>
     <Paper
@@ -165,7 +191,12 @@ export default function RewardHistory() {
           {/* scrollable rows */}
           <Box sx={{ maxHeight: 340, overflowY: 'auto' }}>
             {data.map((r, i) => (
-              <RewardRow key={r.rewardId} reward={r} isNew={i < newCount} />
+              <RewardRow
+                key={r.rewardId}
+                reward={r}
+                isNew={i < newCount}
+                showBadge={firstEarnedIds.has(r.rewardId)}
+              />
             ))}
           </Box>
         </Box>
