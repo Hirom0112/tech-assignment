@@ -47,22 +47,7 @@ jobs:
       - run: npm install
       - run: npm test
 
-  test-streaks-api:
-    name: Streaks API Tests
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: serverless-v2/services/streaks-api
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Install shared dependencies
-        run: npm install
-        working-directory: serverless-v2/shared
-
-      - run: npm install
-      - run: npm test
+# NOTE: the streaks-api is tested by its own workflow, `streaks-ci.yml`, which
+# stands up a DynamoDB Local service + creates the 4 tables before the suite (its
+# integration tests hit DynamoDB on :8000). Running it here without that service
+# 500s every integration test, so the streaks job lives solely in streaks-ci.yml.
