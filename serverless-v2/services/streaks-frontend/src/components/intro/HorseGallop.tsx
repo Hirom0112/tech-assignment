@@ -22,9 +22,30 @@ import { TIMELINE } from './useSequencer';
  * Reduced-motion: no autoplay video — render the static poster still instead.
  * If the video errors, fall back to the poster (the recede still applies).
  *
+ * Blocked autoplay (Safari/iOS): muting + playsInline satisfies the *normal*
+ * autoplay gate, but Low Power Mode, macOS-on-battery, and a per-site
+ * "Never Auto-Play" setting disable autoplay UNCONDITIONALLY and WebKit paints
+ * its own gray center play-button over the <video> (WONTFIX; can't be styled
+ * away). We can't force playback in those states — so we DETECT the block
+ * (a `NotAllowedError` from play(), or `getAutoplayPolicy()` reporting
+ * "disallowed" up front) and swap the live <video> for the poster still, so the
+ * user sees our art instead of WebKit's stuck play glyph. A transient interrupt
+ * (`AbortError`, e.g. a StrictMode remount) is NOT a block — those keep retrying.
+ *
  * SWAP: a seamless in-place gallop-loop clip would let the horse gallop
  * continuously the whole time; this travel-and-arrive shot can't provide that.
  */
+
+/** WebKit/Chromium autoplay-policy probe (not yet in the TS DOM lib). */
+type AutoplayPolicy = 'allowed' | 'allowed-muted' | 'disallowed';
+function autoplayDisallowed(media: HTMLMediaElement): boolean {
+  const get = (navigator as Navigator & {
+    getAutoplayPolicy?: (ctx: 'mediaelement' | HTMLMediaElement) => AutoplayPolicy;
+  }).getAutoplayPolicy;
+  // Only a hard "disallowed" means even muted autoplay is blocked; a muted clip
+  // under "allowed-muted" plays fine, so don't pre-empt those.
+  return typeof get === 'function' && get(media) === 'disallowed';
+}
 export default function HorseGallop({
   exiting,
   motionless = false,
@@ -36,6 +57,10 @@ export default function HorseGallop({
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [errored, setErrored] = useState(false);
+  // Autoplay was hard-blocked by the browser policy (Low Power Mode / battery /
+  // "Never Auto-Play"). Distinct from `errored` (decode/network failure) and
+  // `motionless` (reduced-motion); all three resolve to the poster fallback.
+  const [autoplayBlocked, setAutoplayBlocked] = useState(false);
 
   // Callback ref: set `muted` the INSTANT the <video> node mounts, before
   // Safari evaluates its autoplay gate. React's JSX `muted` attribute is applied
@@ -71,13 +96,28 @@ export default function HorseGallop({
     if (!v) return;
     let cancelled = false;
 
+    // Up-front probe: if the policy already says "disallowed", don't even attempt
+    // play() — go straight to the poster so the <video> (and WebKit's overlay)
+    // never paints. Where unsupported this is a no-op and we fall through to the
+    // play()/catch path below.
+    if (autoplayDisallowed(v)) {
+      setAutoplayBlocked(true);
+      return;
+    }
+
     const tryPlay = () => {
       if (cancelled || v.paused === false) return; // already playing → idempotent
       const p = v.play();
       if (p && typeof p.catch === 'function') {
-        // AbortError (interrupted) or NotAllowedError (blocked) → a readiness
-        // event or the first gesture will retry; nothing to do here.
-        p.catch(() => {});
+        p.catch((err: unknown) => {
+          // NotAllowedError = a hard policy block (Low Power Mode / battery /
+          // Never-Auto-Play) → swap to the poster so the user never sees the
+          // stuck gray play button. AbortError (a StrictMode/competing-play
+          // interrupt) is transient → a readiness event or gesture will retry.
+          if (err instanceof DOMException && err.name === 'NotAllowedError') {
+            setAutoplayBlocked(true);
+          }
+        });
       }
     };
 
@@ -110,7 +150,7 @@ export default function HorseGallop({
     void v.play().catch(() => {});
   }, [exiting, motionless]);
 
-  const showPoster = motionless || errored;
+  const showPoster = motionless || errored || autoplayBlocked;
 
   return (
     <LazyMotion features={domAnimation} strict>
