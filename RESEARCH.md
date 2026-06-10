@@ -2,7 +2,7 @@
 
 **Date:** 2026-06-05
 **Purpose:** Ground the facts before building the Option C *Daily Streaks* feature (React + Lambda + DynamoDB + REST) against the Hijack Poker skeleton repo.
-**Standard:** every claim is **VERIFIED** (primary/authoritative source + URL), **INFERRED** (reasoning chain stated), or **UNVERIFIED/UNKNOWN** (couldn't confirm / aggregator-only). Companion file: [`hijack-poker-company-dossier.md`](./hijack-poker-company-dossier.md).
+**Standard:** every claim is **VERIFIED** (primary/authoritative source + URL), **INFERRED** (reasoning chain stated), or **UNVERIFIED/UNKNOWN** (couldn't confirm / aggregator-only).
 
 ---
 

@@ -47,9 +47,9 @@ Build slices in PROJECT.md §10 order; each ends runnable. Do not start a slice 
 
 **Over-scope rule (PROJECT.md §7):** never start a bonus slice while any core slice (S0–S7) is unfinished. If time runs short, the core ships complete and unfinished bonuses are written into the README's "what we'd do next" — a half-finished core to chase a bonus is a failure.
 
-Detailed steps come from **PLAN.md / TODO.md** (slice-planning skill) — not this file. If those don't exist yet, stop and run slice-planning; do not improvise the breakdown.
+Detailed per-slice steps lived in an internal build plan (kept out of the submission repo) — not this file.
 
-Per-slice loop: read the slice's PLAN entry → write failing tests (§3) → implement → green → refactor → commit at green → update TODO.md → one-sentence status.
+Per-slice loop: read the slice's plan entry → write failing tests (§3) → implement → green → refactor → commit at green → one-sentence status.
 
 ---
 
@@ -97,7 +97,7 @@ A slice is done only when ALL hold:
 2. Strict-scope logic has red→green→refactor unit tests with exact expected values; `npm test` green.
 3. The slice's runnable result (PROJECT.md §10 "Runnable result" column) is verified by actually running it (endpoint curled / dashboard rendered), not assumed.
 4. Code is layered (Inv. 6), typed (Inv. 9), logged at write paths (NFR-6), and returns the canonical error shape (NFR-7).
-5. Docs touched: API_CONTRACT.md / DATA_MODEL.md updated if the wire/storage shape changed; TODO.md checkbox ticked; any new env var added to TECH_STACK.md §4 **and** `.env.example` **and** docker-compose.
+5. Docs touched: API_CONTRACT.md / DATA_MODEL.md updated if the wire/storage shape changed; any new env var added to TECH_STACK.md §4 **and** `.env.example` **and** docker-compose.
 6. The pre-push hook passes without `--no-verify`.
 
 ---

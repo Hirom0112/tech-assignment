@@ -1,7 +1,7 @@
 # PROJECT.md — Hijack Poker Daily Streaks (Option C)
 
 **Status:** Locked planning baseline. Ratify or reopen via the decisions in §11.
-**Grounding:** [`../RESEARCH.md`](../RESEARCH.md), [`../hijack-poker-company-dossier.md`](../hijack-poker-company-dossier.md), and the official spec [`docs/challenge-streaks.md`](docs/challenge-streaks.md).
+**Grounding:** [`RESEARCH.md`](RESEARCH.md) and the official spec [`docs/challenge-streaks.md`](docs/challenge-streaks.md).
 **Precedence:** see `CLAUDE.md §Doc precedence`. This doc constrains ARCHITECTURE.md, TECH_STACK.md, API_CONTRACT.md, DATA_MODEL.md.
 
 ---
@@ -137,7 +137,7 @@ Tied to the challenge rubric (Working 30% / Code 25% / Testing 20% / Architectur
 
 ## 10. Slice roadmap
 
-Every slice is independently shippable and ends in something runnable/verifiable. Detailed steps live in PLAN.md / TODO.md (produced by the slice-planning skill — **not** in this doc).
+Every slice is independently shippable and ends in something runnable/verifiable. The detailed slice steps were tracked in an internal build plan (not part of this submission repo); the table below is the durable roadmap.
 
 | Slice | Title | Delivers (FRs) | Depends on | Runnable result |
 |---|---|---|---|---|

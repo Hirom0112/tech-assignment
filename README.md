@@ -39,13 +39,20 @@ backed by DynamoDB conditional writes — safe to retry, never double-counts.
 
 ## 2. Feature tour
 
-![Streaks dashboard — player streak-001, month 2026-04](SLICE_REPORTS/slice-6-dashboard.png)
+> 🎥 **Video walkthrough (5 min):** https://www.loom.com/share/879308972c34433c828cc8e6385c64c9
 
-The screenshot above is the **demo target**: player **`streak-001`**, month
-**`2026-04`** — the one seed fixture that exercises **all five heat-map states** in a
-single month. The frontend honors `VITE_DEMO_MONTH=2026-04` (see
-`streaks-frontend/.env.example`); unset it to default the calendar to the current UTC
-month.
+![Streaks dashboard — player streak-001](docs/assets/dashboard.png)
+
+<p align="center"><img src="docs/assets/dashboard-mobile.png" alt="Streaks dashboard on a phone — responsive, mobile-first" width="300"></p>
+
+The default demo player is **`streak-001`** ("The Grinder") — the seed fixture tuned to
+exercise **all five heat-map states**. The seed **anchors its data to the day you run
+it**, so the dashboard opens on the **current UTC month** with live-looking history and
+stays current whenever a reviewer runs it (no stale fixed-date fixtures). The calendar
+arrows page back up to 90 days; `VITE_DEMO_MONTH=YYYY-MM` (see
+`streaks-frontend/.env.example`) can pin a specific opening month. The whole dashboard is
+**responsive / mobile-first** (above right) — it stacks cleanly down to a 375px phone with
+the desktop layout untouched.
 
 What ships:
 
@@ -98,7 +105,7 @@ docker compose --profile streaks up
 node scripts/seed-streaks.js        # or: npm run seed:streaks
 
 # 4. open the dashboard
-open http://localhost:4001          # demo player streak-001, month 2026-04
+open http://localhost:4001          # demo player streak-001, current UTC month
 ```
 
 Health check: `curl http://localhost:5001/api/v1/health` →
@@ -106,7 +113,10 @@ Health check: `curl http://localhost:5001/api/v1/health` →
 
 ### Working curl examples
 
-These run green against the live `:5001` service after seeding (real outputs shown):
+These run green against the live `:5001` service after seeding. Outputs below are
+representative for the default demo player `streak-001` ("The Grinder") — the streak
+counts are fixed by the seed; the **dates reflect the day you seeded** (the seed anchors
+its data to "today"):
 
 ```bash
 BASE=http://localhost:5001
@@ -115,16 +125,15 @@ SECRET='dev-internal-secret'
 
 # Current streak state (FR-5.1)
 curl $BASE/api/v1/player/streaks -H "X-Player-Id: $PID"
-# → {"loginStreak":2,"playStreak":2,"bestLoginStreak":17,"bestPlayStreak":4,
-#    "freezesAvailable":0,"nextLoginMilestone":{"days":3,"reward":50,"daysRemaining":1},
-#    "nextPlayMilestone":{"days":3,"reward":100,"daysRemaining":1},
-#    "lastLoginDate":"2026-06-05","lastPlayDate":"2026-06-05"}
+# → {"loginStreak":12,"playStreak":6,"bestLoginStreak":30,"bestPlayStreak":6,
+#    "freezesAvailable":1,"nextLoginMilestone":{"days":14,"reward":400,"daysRemaining":2},
+#    "nextPlayMilestone":{"days":7,"reward":300,"daysRemaining":1},
+#    "lastLoginDate":"<seed day>","lastPlayDate":"<seed day>"}
 
 # Freeze balance + consumption history (FR-5.5)
 curl $BASE/api/v1/player/streaks/freezes -H "X-Player-Id: $PID"
-# → {"freezesAvailable":0,"freezesUsedThisMonth":2,"lastFreezeGrantDate":"2026-06",
-#    "history":[{"date":"2026-04-14","source":"purchased"},
-#               {"date":"2026-04-08","source":"free_monthly"}]}
+# → {"freezesAvailable":1,"freezesUsedThisMonth":1,"lastFreezeGrantDate":"<this month>",
+#    "history":[{"date":"<this month>","source":"free_monthly"}]}
 
 # Internal: hand completed (FR-6) — shared secret, NOT X-Player-Id, playerId in the body
 curl -X POST $BASE/internal/streaks/hand-completed \
@@ -197,13 +206,13 @@ Depth: [`ARCHITECTURE.md`](ARCHITECTURE.md) (flows + ADRs), [`DATA_MODEL.md`](DA
 ## 5. Testing
 
 ```bash
-# Backend — 161 tests (Jest + ts-jest)
+# Backend — 177 tests (Jest + ts-jest)
 cd serverless-v2/services/streaks-api && npm install && npm test
 
 # Backend typecheck (strict TS)
 npm run typecheck            # tsc --noEmit
 
-# Frontend — 29 tests (Vitest + RTL + MSW)
+# Frontend — 40 tests (Vitest + RTL + MSW)
 cd serverless-v2/services/streaks-frontend && npm install && npm test
 ```
 
@@ -253,15 +262,20 @@ below now ship:
 | **BL-1** | Cinematic intro → login screen → dashboard flow | ✅ Shipped — branded intro video → art-deco "High Roller's Lounge" login (stub-auth sets `X-Player-Id`) → dashboard, with logout. |
 | **BL-2** | 3 selectable dashboard themes (runtime switch) | ✅ Shipped — `hijack-dark` / `hijack-lounge` (warm art-deco) / `hijack-neon`, switched live via a top-corner `1·2·3` control, persisted. |
 | **BL-3** | Mockup-driven visual polish | ✅ Shipped — dashboard matches the FR-4 mockup layout; the mockup's warm palette is BL-2's lounge theme. |
+| **BL-4** | Mobile-first responsiveness + polish | ✅ Shipped — the dashboard and login stack cleanly to a 375px phone (the desktop layout is byte-for-byte unchanged, gated behind breakpoints); the intro video falls back to a poster when a browser blocks autoplay (Low-Power Mode / Safari); reward history shows a milestone's rank badge **once** (first earning) while still logging every re-reach's points. |
 
-**Test status (streaks feature):** backend **161** + frontend **29** = **190 tests**, `tsc`
+**Test status (streaks feature):** backend **177** + frontend **40** = **217 tests**, `tsc`
 clean, every slice gate re-verified live. Each package is `npm install && npm test` (see §5);
 the sibling skeleton services (`holdem-processor`, `rewards-api`, `cash-game-broadcast`) are
 **out of this feature's scope and untouched** — they pass once their own and the
 `serverless-v2/shared` `node_modules` are installed.
 
-> **What we'd do next** (genuinely remaining): a docs-align sweep of the `RESEARCH.md`
-> citations (that file lives in the parent dir, outside this repo).
+> **What we'd do next** (genuinely remaining, none blocking): a PNG rasterizer for the
+> share-card (`?format=png` currently `400`s — SVG is the guaranteed format); replacing the
+> visual editor's per-breakpoint layout denylist with a `desktopOnly` flag on the `Editable`
+> wrapper (so canvas-tuned transforms auto-drop on mobile instead of being listed by id);
+> and promoting the "badge earned once for life" rule from a client-side derivation to an
+> explicit flag on the reward wire shape.
 
 ---
 
@@ -301,8 +315,8 @@ skeleton/
 │   ├── streaks-api/                    # TS backend: handlers → services → repositories
 │   └── streaks-frontend/               # React + MUI + RTK Query dashboard (Vite)
 ├── API_CONTRACT.md  ARCHITECTURE.md  DATA_MODEL.md  PROJECT.md  TECH_STACK.md
-├── ASSUMPTIONS.md   CLAUDE.md          # doc-conflict resolutions + agent rulebook
-└── SLICE_REPORTS/                      # what shipped each slice (+ dashboard screenshot)
+├── ASSUMPTIONS.md   RESEARCH.md  CLAUDE.md   # decisions, grounding research, build rulebook
+└── docs/                               # challenge specs, local-dev guide, screenshots
 ```
 
 For the generic multi-option skeleton readme (Options A/B/D, MySQL schema, Hand Viewer,

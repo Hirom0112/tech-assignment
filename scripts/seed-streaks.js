@@ -16,16 +16,16 @@
  * `attribute_not_exists` conditions that guard the live API. `console.log` is
  * fine here (STND-3 binds `src/`, not `scripts/`).
  *
- * ── Why this is DATE-STABLE ────────────────────────────────────────────────
- * The whole dataset is anchored to a FIXED day (`ANCHOR_DATE`, default the last
- * day of the demo month), NOT to the wall-clock `new Date()`. Every persona's
- * curated history lives entirely inside the demo month (`VITE_DEMO_MONTH`,
- * `2026-04`), which the dashboard's calendar defaults to. The `streaks-players`
- * aggregate, the calendar rows, the rewards list, and the freeze panel are all
- * static stored data — so the dashboard renders IDENTICALLY whether the partner
- * opens it today or a week from now. (The only live-derived bit is the "freeze
- * active today" chip, which keys off the real UTC day and is intentionally not
- * relied on by any persona.) Override the anchor with SEED_ANCHOR_DATE=YYYY-MM-DD.
+ * ── Why this is anchored to TODAY ──────────────────────────────────────────
+ * The whole dataset is anchored to the day you RUN the seed (`ANCHOR_DATE`,
+ * default `new Date()`), so every persona's curated history ends "today" and the
+ * dashboard opens on the CURRENT UTC month with live-looking data — no stale
+ * fixed-date fixtures, and it stays current whenever a reviewer runs it. The
+ * calendar defaults to this month (leave `VITE_DEMO_MONTH` empty) and pages back
+ * up to 90 days; all five heat-map states land within the two most-recent months.
+ * For a reproducible fixed snapshot, pin the anchor with
+ * SEED_ANCHOR_DATE=YYYY-MM-DD (the "freeze active today" chip is the only
+ * live-derived bit; no persona relies on it).
  *
  * ── The 4 personas (mapped onto the legacy streak-001..004 ids so the demo
  *    default + the test suite keep working; legacy streak-005..010 are wiped) ──

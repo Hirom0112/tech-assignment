@@ -1,7 +1,7 @@
 # TECH_STACK.md — Hijack Poker Daily Streaks (Option C)
 
 **Status:** Locked. This is the single source of truth for what we build with and which versions. No hedging — every choice below is decided.
-**Grounding:** [`PROJECT.md`](./PROJECT.md), [`../RESEARCH.md`](../RESEARCH.md) (cited inline by question ID: Q3 idempotency/UTC, Q4 DynamoDB/SDK v3, Q5 frontend), and the **real** skeleton files (versions below are copied verbatim from the pinned `package.json` files — not guessed).
+**Grounding:** [`PROJECT.md`](./PROJECT.md), [`RESEARCH.md`](RESEARCH.md) (cited inline by question ID: Q3 idempotency/UTC, Q4 DynamoDB/SDK v3, Q5 frontend), and the **real** skeleton files (versions below are copied verbatim from the pinned `package.json` files — not guessed).
 **Precedence:** governed by `PROJECT.md` and `CLAUDE.md §Doc precedence`. ARCHITECTURE.md, API_CONTRACT.md, and DATA_MODEL.md inherit these versions and the env list in §4; they must not redefine them.
 **Convention:** facts sourced from RESEARCH.md cite the question ID. Anything not verified against the skeleton or RESEARCH.md is tagged **ASSUMPTION:**.
 

@@ -1,6 +1,6 @@
 # ARCHITECTURE.md — Hijack Poker Daily Streaks (Option C)
 
-**Status:** Locked. Constrained by [`PROJECT.md`](./PROJECT.md) (FR/NFR IDs are canonical here) and grounded in [`../RESEARCH.md`](../RESEARCH.md) (Q1–Q6).
+**Status:** Locked. Constrained by [`PROJECT.md`](./PROJECT.md) (FR/NFR IDs are canonical here) and grounded in [`RESEARCH.md`](RESEARCH.md) (Q1–Q6).
 **Scope:** Must-Have + Should-Have (PROJECT.md §7) = S0–S7 core. **Could-Have ratified into scope 2026-06-05** (FR-7 push-payload, FR-8 admin view-history, FR-9 share-card, FR-10 scheduled freeze, NFR-10 CI) — built in the S8–S10 bonus phase **after** the core is green (PROJECT.md §7 over-scope discipline). Bonus components are marked **[BONUS]** throughout this doc.
 **Precedence:** `CLAUDE.md §Doc precedence` — PROJECT.md > this doc > TECH_STACK / API_CONTRACT / DATA_MODEL.
 **Canonical companions:** [`DATA_MODEL.md`](./DATA_MODEL.md) (table attributes), [`API_CONTRACT.md`](./API_CONTRACT.md) (request/response/error shapes), [`TECH_STACK.md`](./TECH_STACK.md) (versions/tooling). This doc points to them; it does not duplicate them.

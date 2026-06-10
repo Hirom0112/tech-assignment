@@ -17,3 +17,13 @@ design-assets/
 
 # Internal company/competitive deep-dive — kept local, not part of the public PR.
 hijack-poker-company-dossier.md
+
+# Internal build process / planning — kept local so the submission repo stays
+# navigable for reviewers. The engineering doc suite (ARCHITECTURE / API_CONTRACT /
+# DATA_MODEL / PROJECT / TECH_STACK / ASSUMPTIONS / RESEARCH) and the README ARE
+# the deliverable; the slice-by-slice build logs and planning trackers are not.
+SLICE_REPORTS/
+HANDOFFS/
+HANDOFF.md
+PLAN.md
+TODO.md

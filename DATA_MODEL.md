@@ -1,6 +1,6 @@
 # DATA_MODEL.md — Hijack Poker Daily Streaks (Option C)
 
-**Status:** Canonical data-model baseline. Constrained by [`PROJECT.md`](PROJECT.md) (FR-1..FR-6, NFR-2/8) and grounded in [`../RESEARCH.md`](../RESEARCH.md) (Q3 idempotency/UTC, Q4 DynamoDB modeling).
+**Status:** Canonical data-model baseline. Constrained by [`PROJECT.md`](PROJECT.md) (FR-1..FR-6, NFR-2/8) and grounded in [`RESEARCH.md`](RESEARCH.md) (Q3 idempotency/UTC, Q4 DynamoDB modeling).
 **Precedence:** PROJECT.md > ARCHITECTURE.md (ADR-1 multi-table) > this doc > API_CONTRACT.md / types. Attribute names defined here are the source of truth for API_CONTRACT.md and the TypeScript domain types.
 **Store:** DynamoDB (AWS SDK v3 `DynamoDBDocumentClient`), 4 tables, accessed via `streaks-api/src/services/dynamo.service.js` (repository layer).
 
