@@ -1,0 +1,7 @@
+- [Home](README.md)
+- [Local Development Guide](local-development.md)
+- **Challenge Options**
+  - [A: Rewards Program](challenge-rewards.md)
+  - [B: Bomb Pots](challenge-bomb-pots.md)
+  - [C: Daily Streaks](challenge-streaks.md)
+  - [D: Unity Game Client](challenge-unity-client.md)
